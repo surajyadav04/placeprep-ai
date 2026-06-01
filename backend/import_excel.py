@@ -110,8 +110,8 @@ async def import_students_from_excel(file_path: str):
             course = get_val(row_lower, ["course"])
             branch = get_val(row_lower, ["branch", "stream"])
             division = get_val(row_lower, ["division", "div"])
-            program_type = get_val(row_lower, ["program type", "program_type"])
-            passing_year = get_val(row_lower, ["passing year", "year of passing"])
+            program_type = get_val(row_lower, ["program type", "program_type", "course"])
+            passing_year = get_val(row_lower, ["current course passing yr", "passing year", "year of passing"])
             
             # Contact
             official_phone = get_val(row_lower, ["official phone", "phone"])
@@ -123,23 +123,23 @@ async def import_students_from_excel(file_path: str):
             nationality = get_val(row_lower, ["nationality"])
             
             # Past Academics
-            tenth_percent = get_float(row_lower, ["10th %", "10th percent"])
-            tenth_board = get_val(row_lower, ["10th board"])
-            tenth_passing_year = get_val(row_lower, ["10th passing year"])
+            tenth_percent = get_float(row_lower, ["10th - aggregate marks", "10th %", "10th percent"])
+            tenth_board = get_val(row_lower, ["10th - board", "10th board"])
+            tenth_passing_year = get_val(row_lower, ["10th - passing yr", "10th passing year"])
             
-            twelfth_percent = get_float(row_lower, ["12th %", "12th percent"])
-            twelfth_board = get_val(row_lower, ["12th board"])
-            twelfth_passing_year = get_val(row_lower, ["12th passing year"])
+            twelfth_percent = get_float(row_lower, ["12th - aggregate marks", "12th %", "12th percent"])
+            twelfth_board = get_val(row_lower, ["12th - board", "12th board"])
+            twelfth_passing_year = get_val(row_lower, ["12th - passing yr", "12th passing year"])
             
-            diploma_degree = get_val(row_lower, ["diploma degree", "diploma"])
-            diploma_percent = get_float(row_lower, ["diploma %", "diploma percent"])
-            diploma_institute = get_val(row_lower, ["diploma institute"])
-            diploma_passing_year = get_val(row_lower, ["diploma passing year"])
+            diploma_degree = get_val(row_lower, ["diploma degree name", "diploma degree", "diploma"])
+            diploma_percent = get_float(row_lower, ["diploma - aggregate marks", "diploma %", "diploma percent"])
+            diploma_institute = get_val(row_lower, ["diploma institute name", "diploma institute"])
+            diploma_passing_year = get_val(row_lower, ["diploma - passing yr", "diploma passing year"])
             
             # Current Academics
-            cgpa = get_float(row_lower, ["cgpa", "overall cgpa"])
-            live_backlogs = get_int(row_lower, ["live backlogs", "backlogs"])
-            closed_backlogs = get_int(row_lower, ["closed backlogs"])
+            cgpa = get_float(row_lower, ["current academics aggregate marks (cgpa)", "cgpa", "overall cgpa"])
+            live_backlogs = get_int(row_lower, ["total live  backlog", "total live backlog", "live backlogs", "backlogs"])
+            closed_backlogs = get_int(row_lower, ["total close backlog total", "closed backlogs"])
             
             # Build semantic semester_data JSON by grabbing anything that looks like "sem x sgpa"
             semester_data = {}
