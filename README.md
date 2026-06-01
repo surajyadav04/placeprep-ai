@@ -1,16 +1,10 @@
 <div align="center">
 
-<img src="frontend/public/icons.svg" alt="PlacePrep AI Logo" width="140" height="140" style="border-radius: 20px;">
+<img src="frontend/src/assets/hero.png" alt="PlacePrep AI Banner" width="100%" style="border-radius: 12px; margin-bottom: 20px;">
 
-<br>
+<h1 align="center">✨ PlacePrep AI ✨</h1>
 
-<h1 align="center">
-  ✨ PlacePrep AI ✨
-</h1>
-
-<p align="center">
-  <i>The Ultimate Alchemical Forge for Placement Preparation</i>
-</p>
+<i>The Ultimate Alchemical Forge for Placement Preparation</i>
 
 <p align="center">
   <a href="#features"><b>Features</b></a> &nbsp;&nbsp;•&nbsp;&nbsp;
@@ -27,45 +21,37 @@
 
 </div>
 
-<br>
-
 > *"Elevating the placement journey from an opaque process to a precise, data-driven science."*
-
-<br>
 
 ---
 
 ## 🌌 The Vision
 
-**PlacePrep AI** is not just an application; it is an intelligent forge for tomorrow's professionals. Designed as a secure institutional gateway, it strips away the noise of placement preparation and replaces it with clarity, actionable AI feedback, and a premium user experience. 
+**PlacePrep AI** is an intelligent forge for tomorrow's professionals. Designed as a secure institutional gateway, it strips away the noise of placement preparation and replaces it with clarity, actionable AI feedback, and a premium user experience. 
 
 It acts as your personal mentor, a rigorous interviewer, and an ATS-savvy resume critic—all wrapped in a stunning glassmorphism interface that feels alive.
-
-<br>
 
 ---
 
 ## 🔮 Core Capabilities
 
-### 🛡️ <kbd>The Gateway</kbd> *(Authentication)*
-Security meets simplicity. PlacePrep AI employs a robust, decoupled JWT authentication architecture that gracefully verifies users while keeping sensitive institutional records completely isolated. 
+> ### 🛡️ The Gateway *(Authentication)*
+> Security meets simplicity. PlacePrep AI employs a robust, decoupled JWT authentication architecture that gracefully verifies users while keeping sensitive institutional records completely isolated. 
 
-### 📄 <kbd>The Forge</kbd> *(ATS Analyzer)*
-Throw your resume into the forge. Our AI engine parses every line, scoring it against modern Applicant Tracking Systems. It doesn't just grade you—it guides you with section-by-section critiques, keyword optimization, and formatting secrets.
+> ### 📄 The Forge *(ATS Analyzer)*
+> Throw your resume into the forge. Our AI engine parses every line, scoring it against modern Applicant Tracking Systems. It doesn't just grade you—it guides you with section-by-section critiques, keyword optimization, and formatting secrets.
 
-### 🎭 <kbd>The Crucible</kbd> *(Mock Interviews)*
-Step into the simulation. Whether you're facing a grueling Technical round or a behavioral HR interview, our AI analyzes your performance in real-time. It evaluates:
-- 💡 **Sentiment:** *Are you projecting confidence or hesitation?*
-- 🎯 **Clarity:** *Is your logic sound and easy to follow?*
-- ⚡ **Confidence:** *Do you believe in your own answers?*
+> ### 🎭 The Crucible *(Mock Interviews)*
+> Step into the simulation. Whether you're facing a grueling Technical round or a behavioral HR interview, our AI analyzes your performance in real-time. It evaluates:
+> - 💡 **Sentiment:** *Are you projecting confidence or hesitation?*
+> - 🎯 **Clarity:** *Is your logic sound and easy to follow?*
+> - ⚡ **Confidence:** *Do you believe in your own answers?*
 
-### 📈 <kbd>The Oracle</kbd> *(Performance Analytics)*
-Data is your greatest asset. Track your evolution through beautifully rendered charts. Watch your ATS scores climb and your interview clarity improve as you iterate on your preparation.
+> ### 📈 The Oracle *(Performance Analytics)*
+> Data is your greatest asset. Track your evolution through beautifully rendered charts. Watch your ATS scores climb and your interview clarity improve as you iterate on your preparation.
 
-### 🎨 <kbd>The Aesthetic</kbd> *(Premium UI/UX)*
-Preparation shouldn't feel like a chore. Built with fluid micro-animations and an elegant glassmorphism design system, the interface is visually striking. Fully responsive, with a seamless Light & Dark mode transition for those late-night grind sessions.
-
-<br>
+> ### 🎨 The Aesthetic *(Premium UI/UX)*
+> Preparation shouldn't feel like a chore. Built with fluid micro-animations and an elegant glassmorphism design system, the interface is visually striking. Fully responsive, with a seamless Light & Dark mode transition for those late-night grind sessions.
 
 ---
 
@@ -91,8 +77,6 @@ Crafted with React and Vite for blazing-fast performance. Styled with custom CSS
 Powered by Python and FastAPI. The database relies on async SQLite (via `aiosqlite`) and SQLAlchemy, ensuring lightning-fast queries and strict separation of user profiles from read-only institutional data.
 
 </div>
-
-<br>
 
 ---
 
@@ -130,8 +114,6 @@ npm run dev
 
 ### IV. The Gateway
 Open your browser and navigate to `http://localhost:5173` to step inside.
-
-<br>
 
 ---
 
