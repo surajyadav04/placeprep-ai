@@ -10,24 +10,46 @@ from fastapi import FastAPI, HTTPException, File, Form, UploadFile, Depends  # t
 from fastapi.middleware.cors import CORSMiddleware  # type: ignore
 from pydantic import BaseModel, Field
 
-from .database import engine, Base
-from . import models  # type: ignore
-from .config import settings
-from .auth import router as auth_router, get_current_user
-from .services.resume_service import (
-    validate_file,
-    extract_text,
-    parse_resume,
-    score_resume,
-    detect_formatting_issues,
-    generate_feedback,
-    match_jd,
-    extract_skills,
-    extract_jd_skills,
-    _section_scores,
-    ResumeAnalysisResponse,
-    JDMatchResponse,
-)
+try:
+    from .database import engine, Base
+    from . import models
+    from .config import settings
+    from .auth import router as auth_router, get_current_user
+    from .opportunities import router as opportunities_router
+    from .services.resume_service import (
+        validate_file,
+        extract_text,
+        parse_resume,
+        score_resume,
+        detect_formatting_issues,
+        generate_feedback,
+        match_jd,
+        extract_skills,
+        extract_jd_skills,
+        _section_scores,
+        ResumeAnalysisResponse,
+        JDMatchResponse,
+    )
+except ImportError:
+    from database import engine, Base
+    import models
+    from config import settings
+    from auth import router as auth_router, get_current_user
+    from opportunities import router as opportunities_router
+    from services.resume_service import (
+        validate_file,
+        extract_text,
+        parse_resume,
+        score_resume,
+        detect_formatting_issues,
+        generate_feedback,
+        match_jd,
+        extract_skills,
+        extract_jd_skills,
+        _section_scores,
+        ResumeAnalysisResponse,
+        JDMatchResponse,
+    )
 
 # ---------- Gemini Client (optional) ----------
 
@@ -44,6 +66,7 @@ if settings.gemini_api_key:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Ensure fresh DB tables are created
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield
@@ -67,6 +90,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(opportunities_router)
 
 
 # ---------- Schemas ----------

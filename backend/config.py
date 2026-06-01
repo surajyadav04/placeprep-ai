@@ -8,10 +8,10 @@ class Settings(BaseSettings):
     gemini_api_key: str | None = None
     openrouter_api_key: str | None = None
     
-    # Bulletproof dynamic absolute path (3 slashes for Windows SQLAlchemy)
     database_url: str = f"sqlite+aiosqlite:///{db_path}"
-    
     secret_key: str = "super_secret_key_change_in_production"
+    
+    mentor_access_code: str = "PLACEMENT2026"
 
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(__file__), ".env"),
