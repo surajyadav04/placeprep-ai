@@ -1,8 +1,6 @@
 <div align="center">
 
-<img src="frontend/src/assets/hero.png" alt="PlacePrep AI Banner" width="100%" style="border-radius: 12px; margin-bottom: 20px;">
-
-<h1 align="center">✨ PlacePrep AI ✨</h1>
+<h1 align="center">PlacePrep AI</h1>
 
 <i>The Ultimate Alchemical Forge for Placement Preparation</i>
 
