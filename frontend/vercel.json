@@ -1,3 +1,8 @@
 {
-  "name": "placeprepai"
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }
