@@ -1,107 +1,104 @@
 <div align="center">
-  <img src="frontend/public/icons.svg" alt="PlacePrep AI Logo" width="100" height="100">
-  <h1 align="center">PlacePrep AI</h1>
-  <p align="center">
-    <strong>An Institutional Gateway & AI-Powered Placement Preparation Platform</strong>
-  </p>
-  <p align="center">
-    <a href="#features">Features</a> •
-    <a href="#tech-stack">Tech Stack</a> •
-    <a href="#installation">Installation</a> •
-    <a href="#architecture">Architecture</a>
-  </p>
+
+<img src="frontend/public/icons.svg" alt="PlacePrep AI Logo" width="120" height="120">
+
+# ✨ PlacePrep AI ✨
+
+*Where institutional clarity meets artificial intelligence.*
+
+**[ Features ]** • **[ Tech Stack ]** • **[ Installation ]** • **[ Architecture ]**
+
+<br>
+
+> *“Elevating the placement journey from an opaque process to a precise science.”*
+
 </div>
 
 ---
 
-## 🚀 Overview
+## 🌌 The Vision
 
-**PlacePrep AI** is a comprehensive, AI-driven platform designed to streamline and elevate the placement preparation process for students. By acting as an institutional gateway, it seamlessly authenticates users and unlocks a suite of powerful tools—ranging from intelligent resume analysis to interactive mock interviews—equipping students with actionable insights to land their dream roles.
+**PlacePrep AI** is not just an application; it is an intelligent forge for tomorrow's professionals. Designed as a secure institutional gateway, it strips away the noise of placement preparation and replaces it with clarity, actionable AI feedback, and a premium user experience. 
 
-## ✨ Features
+It acts as a personal mentor, a rigorous interviewer, and an ATS-savvy resume critic—all wrapped in a stunning glassmorphism interface.
 
-### 🔐 Institutional Authentication
-- **Secure Access:** Robust JWT-based authentication system.
-- **Decoupled Architecture:** Cleanly separated user authentication and institutional registry logic, ensuring data privacy and a seamless onboarding experience.
+---
 
-### 📄 AI Resume Analyzer (ATS Scoring)
-- **Smart Parsing:** Upload your resume to receive a real-time Applicant Tracking System (ATS) score.
-- **Actionable Feedback:** Get detailed, section-by-section recommendations on formatting, keyword optimization, and content improvements to ensure your resume passes automated screenings.
+## 🔮 Core Capabilities
 
-### 🎙️ Interactive Mock Interviews
-- **Simulated Environments:** Practice in specialized domains, including Technical and HR interview modes.
-- **Real-Time AI Feedback:** Receive granular feedback on your answers.
-- **Advanced Metrics:** The AI evaluates responses based on **Sentiment**, **Clarity**, and **Confidence**, providing a holistic view of your interview performance.
+### 🛡️ The Gateway (Authentication)
+Security meets simplicity. PlacePrep AI employs a robust, decoupled JWT authentication architecture that gracefully verifies users while keeping sensitive institutional records completely isolated. 
 
-### 📊 Performance Analytics
-- **Visual Progress:** Track your ATS scores and mock interview results over time through an intuitive, data-rich analytics dashboard.
-- **Insight Driven:** Identify strengths and target weak areas before stepping into real interviews.
+### 📄 The Resume Forge (ATS Analyzer)
+Throw your resume into the forge. Our AI engine parses every line, scoring it against modern Applicant Tracking Systems. It doesn't just grade you—it guides you with section-by-section critiques, keyword optimization, and formatting secrets.
 
-### 🎨 Premium UI/UX & Theming
-- **Dynamic Design:** Built with a modern glassmorphism aesthetic, subtle micro-animations, and fluid transitions using Framer Motion.
-- **Light/Dark Mode:** Seamlessly toggle between fully supported Light and Dark themes for an optimal viewing experience in any environment.
+### 🎭 The Crucible (Mock Interviews)
+Step into the simulation. Whether you're facing a grueling Technical round or a behavioral HR interview, our AI analyzes your performance in real-time. It evaluates:
+- **Sentiment:** *Are you projecting confidence or hesitation?*
+- **Clarity:** *Is your logic sound and easy to follow?*
+- **Confidence:** *Do you believe in your own answers?*
 
-### ⚙️ Customizable Profiles
-- **Student Portfolio:** Maintain an editable profile linking your GitHub, LinkedIn, and personal portfolio.
-- **Skills Tracking:** Easily update your tech stack and core competencies.
+### 📈 The Oracle (Performance Analytics)
+Data is your greatest asset. Track your evolution through beautifully rendered charts. Watch your ATS scores climb and your interview clarity improve as you iterate on your preparation.
 
-## 🛠️ Tech Stack
+### 🎨 The Aesthetic (Premium UI/UX)
+Preparation shouldn't feel like a chore. Built with fluid micro-animations (Framer Motion) and an elegant glassmorphism design system, the interface feels alive. Fully responsive, with a seamless Light & Dark mode transition for late-night grind sessions.
 
-**Frontend:**
-- **Framework:** React.js (Vite)
-- **Styling:** Vanilla CSS / TailwindCSS (Glassmorphism UI)
-- **Animations:** Framer Motion
-- **Icons:** Lucide React
-- **Routing:** React Router DOM
+---
 
-**Backend:**
-- **Framework:** FastAPI (Python)
-- **Database:** SQLite (async via `aiosqlite`)
-- **ORM:** SQLAlchemy
-- **Security:** Passlib (bcrypt), python-jose (JWT)
+## 🛠️ The Architecture
 
-## 📦 Installation & Setup
+<div align="center">
+  <code>React.js</code> • <code>Vite</code> • <code>TailwindCSS</code> • <code>FastAPI</code> • <code>SQLite</code> • <code>Python</code>
+</div>
 
-### Prerequisites
-- Node.js (v18+)
-- Python 3.10+
+<br>
 
-### 1. Clone the Repository
+**Frontend Canvas:** 
+Crafted with React and Vite for blazing-fast performance. Styled with custom CSS and Tailwind to achieve that signature frosted-glass look.
+
+**Backend Engine:**
+Powered by Python and FastAPI. The database relies on async SQLite (via `aiosqlite`) and SQLAlchemy, ensuring lightning-fast queries and strict separation of user profiles from read-only institutional data.
+
+---
+
+## 🚀 Summoning the Project (Installation)
+
+### I. The Codebase
+Clone the repository and step into the workspace:
 ```bash
 git clone https://github.com/surajyadav04/placeprep-ai.git
 cd placeprep-ai
 ```
 
-### 2. Backend Setup
+### II. Awakening the Backend
 ```bash
 cd backend
 python -m venv .venv
-source .venv/bin/activate  # On Windows use: .venv\Scripts\activate
-pip install -r requirements.txt
 
-# Start the FastAPI server
+# Activate the virtual environment
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+# Install dependencies and ignite the server
+pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 ```
-*The backend will automatically generate a fresh SQLite database (`clean.db`) upon startup.*
+*(The backend will autonomously forge a clean SQLite database upon its first breath.)*
 
-### 3. Frontend Setup
+### III. Illuminating the Frontend
 ```bash
 cd frontend
 npm install
 
-# Start the Vite development server
+# Launch the visual interface
 npm run dev
 ```
 
-### 4. Access the Platform
-Navigate to `http://localhost:5173` in your browser.
-
-## 🏗️ Architecture Notes
-- The database schema strictly separates `User` metadata from institutional records, allowing flexible updates to user profiles without compromising read-only institutional data.
-- The platform uses a micro-animation heavy design philosophy aimed at producing a state-of-the-art, premium feel to keep users engaged during their preparation journey.
+### IV. The Gateway
+Open your browser and navigate to `http://localhost:5173` to step inside.
 
 ---
 
 <div align="center">
-  <i>Empowering the next generation of engineers and professionals.</i>
+  <p><i>Crafted for the next generation of engineers and visionaries.</i></p>
 </div>
