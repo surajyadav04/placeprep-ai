@@ -6,7 +6,6 @@ pydantic
 pydantic-settings
 python-multipart
 google-genai
-alembic
 pymupdf
 pdfplumber
 python-docx
@@ -17,5 +16,5 @@ passlib[bcrypt]
 python-jose
 pandas
 openpyxl
-email-validator
-google-auth
+beautifulsoup4
+requests
