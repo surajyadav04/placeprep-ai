@@ -16,6 +16,7 @@ try:
     from .config import settings
     from .auth import router as auth_router, get_current_user
     from .opportunities import router as opportunities_router
+    from .routers.resources import router as resources_router
     from .services.resume_service import (
         validate_file,
         extract_text,
@@ -36,6 +37,7 @@ except ImportError:
     from config import settings
     from auth import router as auth_router, get_current_user
     from opportunities import router as opportunities_router
+    from routers.resources import router as resources_router
     from services.resume_service import (
         validate_file,
         extract_text,
@@ -66,9 +68,28 @@ if settings.gemini_api_key:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Run DB migration for existing tables (adds new columns safely if they don't exist)
+    import sqlite3
+    db_path = os.path.join(os.path.dirname(__file__), "placeprep.db")
+    try:
+        conn = sqlite3.connect(db_path)
+        c = conn.cursor()
+        for col, col_type in [("designation", "VARCHAR"), ("organization", "VARCHAR"), ("name_change_used", "BOOLEAN DEFAULT 0")]:
+            try:
+                c.execute(f"ALTER TABLE users ADD COLUMN {col} {col_type}")
+            except Exception:
+                pass
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Migration error: {e}")
+
     # Ensure fresh DB tables are created
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    
+    # Ensure uploads directory exists
+    os.makedirs(os.path.join(os.path.dirname(__file__), "uploads", "resources"), exist_ok=True)
     yield
 
 
@@ -91,6 +112,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(opportunities_router)
+app.include_router(resources_router)
 
 
 # ---------- Schemas ----------

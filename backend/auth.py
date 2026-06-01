@@ -64,6 +64,8 @@ class ProfileUpdateRequest(BaseModel):
     profile_image_url: Optional[str] = None
     skills: Optional[list[str]] = None
     name: Optional[str] = None
+    designation: Optional[str] = None
+    organization: Optional[str] = None
 
 # --- Routes ---
 
@@ -231,7 +233,10 @@ async def get_my_details(current_user: User = Depends(get_current_user), db: Asy
         "github_url": current_user.github_url,
         "portfolio_url": current_user.portfolio_url,
         "profile_image_url": current_user.profile_image_url,
-        "skills": current_user.skills or []
+        "skills": current_user.skills or [],
+        "designation": current_user.designation,
+        "organization": current_user.organization,
+        "name_change_used": current_user.name_change_used
     }
     
     return {
@@ -251,7 +256,17 @@ async def update_profile_settings(req: ProfileUpdateRequest, current_user: User 
     if req.portfolio_url is not None: current_user.portfolio_url = req.portfolio_url
     if req.profile_image_url is not None: current_user.profile_image_url = req.profile_image_url
     if req.skills is not None: current_user.skills = req.skills
-    if req.name is not None: current_user.name = req.name
+    if req.designation is not None: current_user.designation = req.designation
+    if req.organization is not None: current_user.organization = req.organization
+    
+    if req.name is not None and req.name.strip():
+        if current_user.role == "mentor" and current_user.name != req.name.strip():
+            if current_user.name_change_used:
+                raise HTTPException(status_code=400, detail="Name can only be updated once.")
+            current_user.name = req.name.strip()
+            current_user.name_change_used = True
+        elif current_user.role != "mentor":
+            current_user.name = req.name.strip()
     
     await db.commit()
     return {"message": "Profile updated successfully"}

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'framer-motion';
-import { LayoutDashboard, Mic, FileText, BarChart2, Settings, Flame, Menu, X, User, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, Mic, FileText, BarChart2, Settings, Flame, Menu, X, User, Sun, Moon, BookOpen } from 'lucide-react';
 import ParticleField from './ParticleField';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function Layout({ children }) {
   const location = useLocation();
@@ -21,14 +22,19 @@ export default function Layout({ children }) {
     }
   });
 
-  const navItems = [
-    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/mock-interview', icon: Mic, label: 'Interview' },
-    { to: '/resume', icon: FileText, label: 'Resume' },
-    { to: '/analytics', icon: BarChart2, label: 'Analytics' },
-    { to: '/profile', icon: User, label: 'Profile' },
-    { to: '/settings', icon: Settings, label: 'Settings' },
+  const { user } = useAuth();
+
+  const allNavItems = [
+    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['student', 'mentor'] },
+    { to: '/resources', icon: BookOpen, label: 'Resources', roles: ['student', 'mentor'] },
+    { to: '/mock-interview', icon: Mic, label: 'Interview', roles: ['student'] },
+    { to: '/resume', icon: FileText, label: 'Resume', roles: ['student'] },
+    { to: '/analytics', icon: BarChart2, label: 'Analytics', roles: ['student', 'mentor'] },
+    { to: '/profile', icon: User, label: 'Profile', roles: ['student', 'mentor'] },
+    { to: '/settings', icon: Settings, label: 'Settings', roles: ['student', 'mentor'] },
   ];
+  
+  const navItems = allNavItems.filter(item => item.roles.includes(user?.role || 'student'));
 
   return (
     <div className="min-h-[100dvh] relative overflow-hidden flex flex-col bg-surface-base">

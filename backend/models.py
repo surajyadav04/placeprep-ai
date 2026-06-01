@@ -82,6 +82,11 @@ class User(Base):
     profile_image_url = Column(String, nullable=True)
     skills = Column(JSON, nullable=True)
     
+    # Mentor Specific Profile Fields
+    designation = Column(String, nullable=True)
+    organization = Column(String, nullable=True)
+    name_change_used = Column(Boolean, default=False)
+    
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
@@ -90,6 +95,7 @@ class User(Base):
     opportunities = relationship("Opportunity", back_populates="creator")
     interviews = relationship("Interview", back_populates="user")
     resumes = relationship("Resume", back_populates="user")
+    resources = relationship("Resource", back_populates="uploader")
 
 class Opportunity(Base):
     __tablename__ = "opportunities"
@@ -149,3 +155,18 @@ class Resume(Base):
     file_path = Column(String, nullable=True)
     
     user = relationship("User", back_populates="resumes")
+
+class Resource(Base):
+    __tablename__ = "resources"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    file_path = Column(String, nullable=False)
+    downloads = Column(Integer, default=0)
+    
+    uploaded_by = Column(Integer, ForeignKey("users.id"))
+    
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    
+    uploader = relationship("User", back_populates="resources")

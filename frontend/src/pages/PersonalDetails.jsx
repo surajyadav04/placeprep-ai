@@ -16,8 +16,13 @@ export default function PersonalDetails() {
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+  const isMentor = userData?.role === 'mentor';
+
   // Editable form state
   const [formData, setFormData] = useState({
+    name: userData?.name || '',
+    designation: userData?.profile?.designation || '',
+    organization: userData?.profile?.organization || '',
     bio: userData?.profile?.bio || '',
     linkedin_url: userData?.profile?.linkedin_url || '',
     github_url: userData?.profile?.github_url || '',
@@ -71,8 +76,9 @@ export default function PersonalDetails() {
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
         
-        {/* Left Column: Read-Only Institutional Data */}
-        <div className="xl:col-span-5 flex flex-col gap-6">
+        {/* Left Column: Read-Only Institutional Data (Student Only) */}
+        {!isMentor && (
+          <div className="xl:col-span-5 flex flex-col gap-6">
           <GlassCard glowColor="slate" delay={0.1} className="relative overflow-hidden border-black/5 bg-black/5 pb-8">
             <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none">
               <Building size={160} />
@@ -167,9 +173,10 @@ export default function PersonalDetails() {
             </div>
           </GlassCard>
         </div>
+        )}
 
         {/* Right Column: Editable Profile Settings */}
-        <div className="xl:col-span-7 flex flex-col gap-6">
+        <div className={isMentor ? "xl:col-span-8 xl:col-start-3 flex flex-col gap-6" : "xl:col-span-7 flex flex-col gap-6"}>
           <GlassCard glowColor="indigo" delay={0.2} className="h-full">
             <div className="flex items-center gap-3 mb-8 pb-6 border-b border-black/5">
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
@@ -182,6 +189,52 @@ export default function PersonalDetails() {
             </div>
 
             <form onSubmit={handleSave} className="space-y-6">
+              
+              {isMentor && (
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 font-body flex justify-between">
+                      <span>Full Name</span>
+                      {userData?.profile?.name_change_used && (
+                        <span className="text-amber-500 text-[10px]">Name can only be updated once.</span>
+                      )}
+                    </label>
+                    <input 
+                      type="text" 
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      disabled={userData?.profile?.name_change_used}
+                      className="w-full glass-input disabled:opacity-50" 
+                      placeholder="Your Full Name" 
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 font-body">Designation</label>
+                      <input 
+                        type="text" 
+                        name="designation"
+                        value={formData.designation}
+                        onChange={handleInputChange}
+                        className="w-full glass-input" 
+                        placeholder="e.g., Senior Software Engineer" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 font-body">Organization</label>
+                      <input 
+                        type="text" 
+                        name="organization"
+                        value={formData.organization}
+                        onChange={handleInputChange}
+                        className="w-full glass-input" 
+                        placeholder="e.g., Google" 
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
               
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 font-body">Professional Bio</label>
