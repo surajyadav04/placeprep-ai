@@ -13,6 +13,8 @@ export default function PersonalDetails() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const navigate = useNavigate();
 
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
   // Editable form state
   const [formData, setFormData] = useState({
     bio: '',
@@ -27,7 +29,7 @@ export default function PersonalDetails() {
       try {
         const token = localStorage.getItem('token');
         if (!token) return navigate('/');
-        const res = await axios.get('http://localhost:8000/api/auth/me', {
+        const res = await axios.get(`${API_URL}/api/auth/me`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setUserData(res.data);
@@ -66,7 +68,7 @@ export default function PersonalDetails() {
     setSaveSuccess(false);
     try {
       const token = localStorage.getItem('token');
-      await axios.put('http://localhost:8000/api/auth/profile/settings', formData, {
+      await axios.put(`${API_URL}/api/auth/profile/settings`, formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setSaveSuccess(true);

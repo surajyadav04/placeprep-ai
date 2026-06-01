@@ -6,7 +6,7 @@ import axios from 'axios';
 import ParticleField from '../components/ParticleField';
 import { useTheme } from '../context/ThemeContext';
 
-const API_URL = 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export default function Auth() {
   const [mode, setMode] = useState('login'); // login, register_email, register_password

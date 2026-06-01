@@ -10,12 +10,14 @@ export default function Dashboard() {
   const [userData, setUserData] = useState(null);
   const navigate = useNavigate();
 
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
   useEffect(() => {
     const fetchUser = async () => {
       try {
         const token = localStorage.getItem('token');
         if (!token) return navigate('/');
-        const res = await axios.get('http://localhost:8000/api/auth/me', {
+        const res = await axios.get(`${API_URL}/api/auth/me`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setUserData(res.data);

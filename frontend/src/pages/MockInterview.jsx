@@ -19,6 +19,7 @@ const MOCK_QUESTIONS = [
 
 export default function MockInterview() {
   const navigate = useNavigate();
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -60,7 +61,7 @@ export default function MockInterview() {
     if (!transcript.trim()) { alert("Please provide an answer before submitting."); return; }
     setIsEvaluating(true); setFeedback(null);
     try {
-      const response = await axios.post('http://localhost:8000/api/interview/evaluate', { question: MOCK_QUESTIONS[currentQuestionIdx], answer: transcript });
+      const response = await axios.post(`${API_URL}/api/interview/evaluate`, { question: MOCK_QUESTIONS[currentQuestionIdx], answer: transcript });
       setFeedback(response.data);
     } catch (err) {
       console.error("Failed to evaluate", err);
