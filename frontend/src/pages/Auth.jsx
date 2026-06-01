@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Lock, LogIn, UserPlus, Zap, ArrowLeft, Building, GraduationCap, Sun, Moon } from 'lucide-react';
+import { Mail, Lock, LogIn, Zap, ArrowLeft, Building, GraduationCap, Sun, Moon } from 'lucide-react';
 import axios from 'axios';
-import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import ParticleField from '../components/ParticleField';
 import { useTheme } from '../context/ThemeContext';
 
