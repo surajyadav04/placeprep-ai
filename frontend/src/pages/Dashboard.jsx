@@ -7,29 +7,11 @@ import Layout from '../components/Layout';
 import StudentView from '../components/StudentView';
 import MentorView from '../components/MentorView';
 
+import { useAuth } from '../context/AuthContext';
+
 export default function Dashboard() {
-  const [userData, setUserData] = useState(null);
+  const { user: userData, logout } = useAuth();
   const navigate = useNavigate();
-
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) return navigate('/');
-        const res = await axios.get(`${API_URL}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setUserData(res.data);
-      } catch (err) {
-        console.error(err);
-        localStorage.removeItem('token');
-        navigate('/');
-      }
-    };
-    fetchUser();
-  }, [navigate]);
 
   const firstName = userData?.name?.split(' ')[0] || (userData?.role === 'mentor' ? 'Mentor' : 'Student');
   const branch = userData?.institutional?.branch;
@@ -68,7 +50,7 @@ export default function Dashboard() {
             </div>
           )}
           <button 
-            onClick={() => { localStorage.removeItem('token'); navigate('/'); }}
+            onClick={() => { logout(); navigate('/'); }}
             className="w-11 h-11 rounded-full bg-white shadow-sm border border-black/5 flex items-center justify-center text-text-muted hover:text-red-500 hover:border-red-500/20 transition-colors"
             title="Log Out"
           >

@@ -6,6 +6,7 @@ import axios from 'axios';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import ParticleField from '../components/ParticleField';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -14,6 +15,7 @@ export default function Auth() {
   const [mode, setMode] = useState('login'); // 'login' or 'register'
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
+  const { login } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,7 +34,7 @@ export default function Auth() {
     setLoading(true); setError('');
     try {
       const res = await axios.post(`${API_URL}/api/auth/login`, { email, password });
-      localStorage.setItem('token', res.data.access_token);
+      login(res.data.access_token, res.data.user);
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.detail || 'Invalid credentials');
@@ -86,7 +88,7 @@ export default function Auth() {
         payload.dob = dob;
       }
       const res = await axios.post(`${API_URL}/api/auth/register`, payload);
-      localStorage.setItem('token', res.data.access_token);
+      login(res.data.access_token, res.data.user);
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to register');
@@ -101,7 +103,7 @@ export default function Auth() {
         credential: credentialResponse.credential,
         role: mode === 'register' ? role : 'student' // Pass selected role for new users
       });
-      localStorage.setItem('token', res.data.access_token);
+      login(res.data.access_token, res.data.user);
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.detail || 'Google Sign-In failed');

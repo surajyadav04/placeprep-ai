@@ -6,9 +6,10 @@ import axios from 'axios';
 import Layout from '../components/Layout';
 import GlassCard from '../components/GlassCard';
 
+import { useAuth } from '../context/AuthContext';
+
 export default function PersonalDetails() {
-  const [userData, setUserData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { user: userData, setUser: setUserData } = useAuth();
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const navigate = useNavigate();
@@ -17,45 +18,12 @@ export default function PersonalDetails() {
 
   // Editable form state
   const [formData, setFormData] = useState({
-    bio: '',
-    linkedin_url: '',
-    github_url: '',
-    portfolio_url: '',
-    profile_image_url: ''
+    bio: userData?.profile?.bio || '',
+    linkedin_url: userData?.profile?.linkedin_url || '',
+    github_url: userData?.profile?.github_url || '',
+    portfolio_url: userData?.profile?.portfolio_url || '',
+    profile_image_url: userData?.profile?.profile_image_url || ''
   });
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) return navigate('/');
-        const res = await axios.get(`${API_URL}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setUserData(res.data);
-        
-        // Initialize editable form data
-        if (res.data.profile) {
-          setFormData({
-            bio: res.data.profile.bio || '',
-            linkedin_url: res.data.profile.linkedin_url || '',
-            github_url: res.data.profile.github_url || '',
-            portfolio_url: res.data.profile.portfolio_url || '',
-            profile_image_url: res.data.profile.profile_image_url || ''
-          });
-        }
-      } catch (err) {
-        console.error(err);
-        if (err.response?.status === 401) {
-          localStorage.removeItem('token');
-          navigate('/');
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchUser();
-  }, [navigate]);
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -80,15 +48,7 @@ export default function PersonalDetails() {
     }
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex h-full items-center justify-center">
-          <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-        </div>
-      </Layout>
-    );
-  }
+
 
   const inst = userData?.institutional || {};
 
