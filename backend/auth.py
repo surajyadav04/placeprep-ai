@@ -217,6 +217,16 @@ async def get_my_details(current_user: User = Depends(get_current_user), db: Asy
         # Fetch directly from linked institutional registry
         sm = await db.scalar(select(StudentMaster).where(StudentMaster.id == current_user.student_master_id))
         if sm:
+            import datetime, decimal
+            raw_data = {}
+            for c in sm.__table__.columns:
+                val = getattr(sm, c.name)
+                if isinstance(val, (datetime.date, datetime.datetime)):
+                    val = val.isoformat()
+                elif isinstance(val, decimal.Decimal):
+                    val = float(val)
+                raw_data[c.name] = val
+                
             institutional_data = {
                 "full_name": sm.full_name,
                 "roll_number": sm.roll_no,
@@ -224,7 +234,8 @@ async def get_my_details(current_user: User = Depends(get_current_user), db: Asy
                 "branch": sm.branch,
                 "batch": sm.batch,
                 "cgpa": sm.cgpa,
-                "program_type": sm.program_type
+                "program_type": sm.program_type,
+                "raw_data": raw_data
             }
     
     profile_data = {
