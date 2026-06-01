@@ -5,7 +5,7 @@
 <br>
 
 <h1 align="center">
-  <kbd>✨ PlacePrep AI ✨</kbd>
+  ✨ PlacePrep AI ✨
 </h1>
 
 <p align="center">
