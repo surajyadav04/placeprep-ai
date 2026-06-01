@@ -18,7 +18,7 @@ export default function MentorView() {
   const fetchOpps = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`${API_URL}/api/opportunities`, {
+      const res = await axios.get(`${API_URL}/api/opportunities/`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setPostedOpps(res.data);
@@ -65,7 +65,7 @@ export default function MentorView() {
     setPublishing(true);
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${API_URL}/api/opportunities`, opportunityData, {
+      await axios.post(`${API_URL}/api/opportunities/`, opportunityData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setOpportunityData(null);
