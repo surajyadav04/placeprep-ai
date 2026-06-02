@@ -17,6 +17,7 @@ try:
     from .auth import router as auth_router, get_current_user
     from .opportunities import router as opportunities_router
     from .routers.resources import router as resources_router
+    from .routers.activity import router as activity_router
     from .services.resume_service import (
         validate_file,
         extract_text,
@@ -38,6 +39,7 @@ except ImportError:
     from auth import router as auth_router, get_current_user
     from opportunities import router as opportunities_router
     from routers.resources import router as resources_router
+    from routers.activity import router as activity_router
     from services.resume_service import (
         validate_file,
         extract_text,
@@ -113,6 +115,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(opportunities_router)
 app.include_router(resources_router)
+app.include_router(activity_router)
 
 
 # ---------- Schemas ----------

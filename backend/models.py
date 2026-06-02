@@ -170,3 +170,14 @@ class Resource(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     
     uploader = relationship("User", back_populates="resources")
+
+class UserActivity(Base):
+    __tablename__ = "user_activity"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    date = Column(String, index=True) # YYYY-MM-DD in IST
+    active_seconds = Column(Integer, default=0)
+    last_seen_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    
+    user = relationship("User")

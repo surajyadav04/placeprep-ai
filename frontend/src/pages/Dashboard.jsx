@@ -6,12 +6,30 @@ import axios from 'axios';
 import Layout from '../components/Layout';
 import StudentView from '../components/StudentView';
 import MentorView from '../components/MentorView';
+import ActivityTracker from '../components/ActivityTracker';
+import StreakModal from '../components/StreakModal';
 
 import { useAuth } from '../context/AuthContext';
 
 export default function Dashboard() {
   const { user: userData, logout } = useAuth();
   const navigate = useNavigate();
+
+  const [isStreakModalOpen, setIsStreakModalOpen] = useState(false);
+  const [currentStreak, setCurrentStreak] = useState(0);
+
+  useEffect(() => {
+    if (userData && userData.role !== 'mentor') {
+      const token = localStorage.getItem('token');
+      if (token) {
+        axios.get('/api/activity/streak', {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        .then(res => setCurrentStreak(res.data.currentStreak || 0))
+        .catch(err => console.error("Streak fetch error:", err));
+      }
+    }
+  }, [userData]);
 
   const firstName = userData?.name?.split(' ')[0] || (userData?.role === 'mentor' ? 'Mentor' : 'Student');
   const branch = userData?.institutional?.branch;
@@ -42,12 +60,13 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-3">
           {userData?.role !== 'mentor' && (
-            <div
-              className="px-5 py-3 rounded-full text-sm font-medium flex items-center gap-3 bg-white shadow-sm border border-black/5"
+            <button
+              onClick={() => setIsStreakModalOpen(true)}
+              className="px-5 py-3 rounded-full text-sm font-medium flex items-center gap-3 bg-white shadow-sm border border-black/5 hover:border-orange-500/30 hover:shadow-md transition-all cursor-pointer"
               style={{ color: 'var(--color-warning)' }}
             >
-              <Flame size={16} /> 5 Day Streak
-            </div>
+              <Flame size={16} /> {currentStreak} Day Streak
+            </button>
           )}
           <button 
             onClick={() => { logout(); navigate('/'); }}
@@ -62,6 +81,8 @@ export default function Dashboard() {
       {/* ── Role Based View Rendering ── */}
       {userData?.role === 'mentor' ? <MentorView /> : <StudentView />}
 
+      <ActivityTracker />
+      <StreakModal isOpen={isStreakModalOpen} onClose={() => setIsStreakModalOpen(false)} />
     </Layout>
   );
 }
