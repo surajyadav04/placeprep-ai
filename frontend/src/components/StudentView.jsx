@@ -2,27 +2,40 @@ import React, { useState, useEffect } from 'react';
 import { Briefcase, ExternalLink, Flame } from 'lucide-react';
 import axios from 'axios';
 import GlassCard from './GlassCard';
+import ResumeHistoryModal from './ResumeHistoryModal';
+import InterviewHistoryModal from './InterviewHistoryModal';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export default function StudentView() {
   const [opportunities, setOpportunities] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  const [stats, setStats] = useState({
+    resumeCount: 0,
+    bestResumeScore: 0,
+    interviewCount: 0,
+    bestInterviewScore: 0
+  });
+  const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
+  const [isInterviewModalOpen, setIsInterviewModalOpen] = useState(false);
 
   useEffect(() => {
-    const fetchOpps = async () => {
+    const fetchOppsAndStats = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await axios.get(`${API_URL}/api/opportunities/`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setOpportunities(res.data);
+        const [oppsRes, statsRes] = await Promise.all([
+          axios.get(`${API_URL}/api/opportunities/`, { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get(`${API_URL}/api/analytics/quick-stats`, { headers: { Authorization: `Bearer ${token}` } })
+        ]);
+        setOpportunities(oppsRes.data);
+        setStats(statsRes.data);
       } catch (err) {
         console.error(err);
       }
       setLoading(false);
     };
-    fetchOpps();
+    fetchOppsAndStats();
   }, []);
 
   return (
@@ -84,17 +97,32 @@ export default function StudentView() {
             <Flame size={18} /> Quick Stats
           </h3>
           <div className="space-y-4">
-            <div className="p-4 rounded-xl bg-black/5">
-              <div className="text-sm text-text-secondary mb-1 font-medium">Resumes Scored</div>
-              <div className="text-2xl font-bold font-display text-primary">0</div>
+            <div 
+              className="p-4 rounded-xl bg-black/5 cursor-pointer hover:bg-black/10 transition-colors"
+              onClick={() => setIsResumeModalOpen(true)}
+            >
+              <div className="flex justify-between items-start">
+                <div className="text-sm text-text-secondary mb-1 font-medium">Resumes Scored</div>
+                <div className="text-xs font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">Top: {stats.bestResumeScore}</div>
+              </div>
+              <div className="text-2xl font-bold font-display text-primary">{stats.resumeCount}</div>
             </div>
-            <div className="p-4 rounded-xl bg-black/5">
-              <div className="text-sm text-text-secondary mb-1 font-medium">Interviews Completed</div>
-              <div className="text-2xl font-bold font-display text-primary">0</div>
+            <div 
+              className="p-4 rounded-xl bg-black/5 cursor-pointer hover:bg-black/10 transition-colors"
+              onClick={() => setIsInterviewModalOpen(true)}
+            >
+              <div className="flex justify-between items-start">
+                <div className="text-sm text-text-secondary mb-1 font-medium">Interviews Completed</div>
+                <div className="text-xs font-bold text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">Top: {stats.bestInterviewScore}</div>
+              </div>
+              <div className="text-2xl font-bold font-display text-primary">{stats.interviewCount}</div>
             </div>
           </div>
         </GlassCard>
       </div>
+
+      <ResumeHistoryModal isOpen={isResumeModalOpen} onClose={() => setIsResumeModalOpen(false)} />
+      <InterviewHistoryModal isOpen={isInterviewModalOpen} onClose={() => setIsInterviewModalOpen(false)} />
     </div>
   );
 }

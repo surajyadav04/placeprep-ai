@@ -9,15 +9,17 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException, File, Form, UploadFile, Depends  # type: ignore
 from fastapi.middleware.cors import CORSMiddleware  # type: ignore
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 try:
-    from .database import engine, Base
+    from .database import engine, Base, get_db
     from . import models
     from .config import settings
     from .auth import router as auth_router, get_current_user
     from .opportunities import router as opportunities_router
     from .routers.resources import router as resources_router
     from .routers.activity import router as activity_router
+    from .routers.analytics import router as analytics_router
     from .services.resume_service import (
         validate_file,
         extract_text,
@@ -33,13 +35,14 @@ try:
         JDMatchResponse,
     )
 except ImportError:
-    from database import engine, Base
+    from database import engine, Base, get_db
     import models
     from config import settings
     from auth import router as auth_router, get_current_user
     from opportunities import router as opportunities_router
     from routers.resources import router as resources_router
     from routers.activity import router as activity_router
+    from routers.analytics import router as analytics_router
     from services.resume_service import (
         validate_file,
         extract_text,
@@ -78,7 +81,7 @@ async def lifespan(app: FastAPI):
         c = conn.cursor()
         for col, col_type in [("designation", "VARCHAR"), ("organization", "VARCHAR"), ("name_change_used", "BOOLEAN DEFAULT 0")]:
             try:
-                c.execute(f"ALTER TABLE users ADD COLUMN {col} {col_type}")
+                c.execute(f"ALTER TABLE users {col} {col_type}")
             except Exception:
                 pass
         conn.commit()
@@ -116,6 +119,7 @@ app.include_router(auth_router)
 app.include_router(opportunities_router)
 app.include_router(resources_router)
 app.include_router(activity_router)
+app.include_router(analytics_router)
 
 
 # ---------- Schemas ----------
@@ -327,19 +331,21 @@ def health_check():
 # --- Interview Evaluation ---
 
 @app.post("/api/interview/evaluate", response_model=EvaluationResponse)
-async def evaluate_interview(request: EvaluationRequest, current_user: models.User = Depends(get_current_user)):
+async def evaluate_interview(request: EvaluationRequest, current_user: models.User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     if not request.answer.strip():
         raise HTTPException(status_code=400, detail="Answer transcript is empty.")
+
+    res = None
 
     # 1. Try OpenRouter (Gemini 2.5 Flash via API)
     if settings.openrouter_api_key:
         try:
-            return call_openrouter(request.question, request.answer, settings.openrouter_api_key)
+            res = call_openrouter(request.question, request.answer, settings.openrouter_api_key)
         except Exception as e:
             print(f"OpenRouter failed: {e}")
 
     # 2. Try native Gemini client
-    if client:
+    if not res and client:
         try:
             from google.genai import types
 
@@ -365,12 +371,32 @@ async def evaluate_interview(request: EvaluationRequest, current_user: models.Us
             )
             data = json.loads(response.text)
             data["sandbox"] = False
-            return EvaluationResponse(**data)
+            res = EvaluationResponse(**data)
         except Exception as e:
             print(f"Gemini evaluation failed: {e}")
 
     # 3. Fallback to rule-based simulation
-    return get_simulated_feedback(request.question, request.answer)
+    if not res:
+        res = get_simulated_feedback(request.question, request.answer)
+
+    # Persist History
+    try:
+        interview = models.Interview(
+            user_id=current_user.id,
+            type="mock_interview",
+            overall_score=res.score,
+            feedback=json.dumps({
+                "review": res.review,
+                "strengths": res.strengths,
+                "weaknesses": res.weaknesses
+            })
+        )
+        db.add(interview)
+        await db.commit()
+    except Exception as e:
+        print(f"Failed to persist interview history: {e}")
+
+    return res
 
 
 # --- Resume Analysis ---
@@ -379,7 +405,8 @@ async def evaluate_interview(request: EvaluationRequest, current_user: models.Us
 async def analyze_resume(
     file: UploadFile = File(...),
     jd_text: Optional[str] = Form(None),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
     """Upload a resume (PDF/DOCX) and get ATS analysis.
     Optionally include jd_text as a form field for semantic JD matching.
@@ -420,7 +447,7 @@ async def analyze_resume(
         # Feedback
         feedback = generate_feedback(score_data, parsed=parsed, jd_text=jd_text or None)
 
-        return ResumeAnalysisResponse(
+        res = ResumeAnalysisResponse(
             ats_score=score_data["ats_score"],
             keyword_match=score_data["keyword_match"],
             semantic_score=score_data["semantic_score"],
@@ -438,6 +465,25 @@ async def analyze_resume(
             parsed=parsed,
             formatting_issues=formatting_issues,
         )
+        
+        # Persist History
+        try:
+            resume_record = models.Resume(
+                user_id=current_user.id,
+                ats_score=score_data["ats_score"],
+                feedback_json={
+                    "strengths": feedback["strengths"],
+                    "weaknesses": feedback["weaknesses"],
+                    "ats_tips": feedback["ats_tips"]
+                },
+                file_path=None
+            )
+            db.add(resume_record)
+            await db.commit()
+        except Exception as e:
+            print(f"Failed to persist resume history: {e}")
+
+        return res
 
     except HTTPException:
         raise
