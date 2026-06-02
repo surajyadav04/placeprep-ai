@@ -1,3 +1,6 @@
+import secrets
+import hashlib
+import re
 from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext
 from jose import JWTError, jwt
@@ -7,11 +10,11 @@ from sqlalchemy import select
 
 try:
     from .database import get_db
-    from .models import User, StudentMaster
+    from .models import User, StudentMaster, PasswordResetToken
     from .config import settings
 except ImportError:
     from database import get_db
-    from models import User, StudentMaster
+    from models import User, StudentMaster, PasswordResetToken
     from config import settings
 
 # --- Config Setup ---
@@ -56,6 +59,13 @@ class LoginRequest(BaseModel):
     email: str
     password: str
 
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
 class ProfileUpdateRequest(BaseModel):
     bio: Optional[str] = None
     linkedin_url: Optional[str] = None
@@ -66,6 +76,18 @@ class ProfileUpdateRequest(BaseModel):
     name: Optional[str] = None
     designation: Optional[str] = None
     organization: Optional[str] = None
+
+def validate_password_strength(password: str) -> None:
+    if len(password) < 10:
+        raise HTTPException(status_code=400, detail="Password must be at least 10 characters long.")
+    if not re.search(r"[A-Z]", password):
+        raise HTTPException(status_code=400, detail="Password must contain at least one uppercase letter.")
+    if not re.search(r"[a-z]", password):
+        raise HTTPException(status_code=400, detail="Password must contain at least one lowercase letter.")
+    if not re.search(r"\d", password):
+        raise HTTPException(status_code=400, detail="Password must contain at least one number.")
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>\-_\+=/\[\]~]", password):
+        raise HTTPException(status_code=400, detail="Password must contain at least one special character.")
 
 # --- Routes ---
 
@@ -160,6 +182,8 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
         if req.mentor_code != settings.mentor_access_code:
             raise HTTPException(status_code=403, detail="Invalid mentor access code.")
             
+    validate_password_strength(req.password)
+    
     user = User(
         email=email,
         name=name,
@@ -190,6 +214,82 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     return {"access_token": access_token, "user": {"name": user.name, "email": user.email, "role": user.role}}
+
+@router.post("/forgot-password")
+async def forgot_password(req: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+    email = req.email.lower().strip()
+    user = await db.scalar(select(User).where(User.email == email))
+    
+    if user:
+        raw_token = secrets.token_hex(32)
+        token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+        
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
+        
+        reset_token = PasswordResetToken(
+            user_id=user.id,
+            token_hash=token_hash,
+            expires_at=expires_at
+        )
+        db.add(reset_token)
+        await db.commit()
+        
+        # Determine reset link
+        # Use localhost for local dev, or the origin if provided in headers? 
+        # For simplicity we assume localhost:5173 for local, but ideally this is an env var.
+        # Let's just output a generic one or rely on a generic host variable.
+        # It's better to just send it if resend is configured.
+        reset_url = f"https://placeprep.ai/reset-password?token={raw_token}"
+        
+        if settings.resend_api_key:
+            try:
+                import resend
+                resend.api_key = settings.resend_api_key
+                resend.Emails.send({
+                    "from": settings.resend_from_email,
+                    "to": user.email,
+                    "subject": "PlacePrep AI - Password Reset Request",
+                    "html": f"<p>You requested a password reset.</p><p>Click <a href='{reset_url}'>here</a> to reset your password.</p><p>This link expires in 15 minutes.</p>"
+                })
+            except Exception as e:
+                print(f"Failed to send email via resend: {e}")
+        else:
+            print(f"--- DEVELOPMENT MODE: Password Reset URL for {email} ---")
+            print(reset_url)
+            print("---------------------------------------------------------")
+            
+    # Generic success response to prevent email enumeration
+    return {"message": "If an account exists for that email, a reset link has been sent."}
+
+@router.post("/reset-password")
+async def reset_password(req: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+    # Validate password strength first
+    validate_password_strength(req.new_password)
+    
+    token_hash = hashlib.sha256(req.token.encode()).hexdigest()
+    
+    reset_record = await db.scalar(
+        select(PasswordResetToken)
+        .where(PasswordResetToken.token_hash == token_hash)
+        .where(PasswordResetToken.used == False)
+    )
+    
+    if not reset_record:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token.")
+        
+    if reset_record.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token.")
+        
+    user = await db.scalar(select(User).where(User.id == reset_record.user_id))
+    if not user:
+        raise HTTPException(status_code=400, detail="User not found.")
+        
+    # Update password and invalidate token
+    user.password_hash = get_password_hash(req.new_password)
+    reset_record.used = True
+    
+    await db.commit()
+    return {"message": "Password has been successfully reset."}
 
 # --- Dependency for Protected Routes ---
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials

@@ -181,3 +181,15 @@ class UserActivity(Base):
     last_seen_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     
     user = relationship("User")
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    token_hash = Column(String, unique=True, index=True, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    used = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    
+    user = relationship("User")

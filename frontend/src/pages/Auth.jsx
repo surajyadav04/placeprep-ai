@@ -7,12 +7,13 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import ParticleField from '../components/ParticleField';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import PasswordStrengthMeter from '../components/PasswordStrengthMeter';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 export default function Auth() {
-  const [mode, setMode] = useState('login'); // 'login' or 'register'
+  const [mode, setMode] = useState('login'); // 'login', 'register', 'forgot-password'
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const { login } = useAuth();
@@ -25,6 +26,8 @@ export default function Auth() {
   const [registerStep, setRegisterStep] = useState(1);
   const [studentProfile, setStudentProfile] = useState(null);
   const [dob, setDob] = useState('');
+  const [isPasswordValid, setIsPasswordValid] = useState(false);
+  const [forgotPasswordMessage, setForgotPasswordMessage] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -78,6 +81,10 @@ export default function Auth() {
   const handleRegister = async (e) => {
     e.preventDefault();
     if (role === 'student' && registerStep !== 3) return;
+    if (!isPasswordValid) {
+      setError('Please ensure your password meets all strength requirements.');
+      return;
+    }
     
     setLoading(true); setError('');
     try {
@@ -92,6 +99,19 @@ export default function Auth() {
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to register');
+    }
+    setLoading(false);
+  };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    if (!email) return;
+    setLoading(true); setError(''); setForgotPasswordMessage('');
+    try {
+      const res = await axios.post(`${API_URL}/api/auth/forgot-password`, { email });
+      setForgotPasswordMessage(res.data.message || 'Reset link sent.');
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to process request');
     }
     setLoading(false);
   };
@@ -168,16 +188,22 @@ export default function Auth() {
                     <Zap size={20} />
                   </div>
                   <h2 className="text-3xl font-bold font-display text-primary mb-2">
-                    {mode === 'login' ? 'Welcome back' : 'Welcome to PlacePrep AI'}
+                    {mode === 'login' ? 'Welcome back' : mode === 'register' ? 'Welcome to PlacePrep AI' : 'Reset Password'}
                   </h2>
                   <p className="text-sm text-text-secondary font-body">
-                    {mode === 'login' ? 'Sign in to your institutional workspace' : 'Create an account to begin'}
+                    {mode === 'login' ? 'Sign in to your institutional workspace' : mode === 'register' ? 'Create an account to begin' : 'Enter your email to receive a reset link'}
                   </p>
                 </div>
 
                 {error && (
                   <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-6 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-medium">
                     {error}
+                  </motion.div>
+                )}
+                
+                {forgotPasswordMessage && (
+                  <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-6 p-3 rounded-xl bg-green-500/10 border border-green-500/20 text-green-700 dark:text-green-400 text-xs font-medium text-center">
+                    {forgotPasswordMessage}
                   </motion.div>
                 )}
 
@@ -201,7 +227,12 @@ export default function Auth() {
                           </div>
                         </div>
                         <div>
-                          <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 font-body">Password</label>
+                          <div className="flex justify-between items-center mb-2">
+                            <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary font-body">Password</label>
+                            <button type="button" onClick={() => {setMode('forgot-password'); setError(''); setForgotPasswordMessage('');}} className="text-[10px] text-primary hover:underline font-medium">
+                              Forgot Password?
+                            </button>
+                          </div>
                           <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Lock size={16} className="text-text-muted" /></div>
                             <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full glass-input !pl-11" placeholder="••••••••" required />
@@ -260,8 +291,9 @@ export default function Auth() {
                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Lock size={16} className="text-text-muted" /></div>
                                 <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full glass-input !pl-11" placeholder="••••••••" required minLength={8} maxLength={32} />
                               </div>
+                              <PasswordStrengthMeter password={password} onValidityChange={setIsPasswordValid} />
                             </div>
-                            <button type="submit" disabled={loading || password.length < 8} className="w-full group btn-primary flex items-center justify-center gap-2 py-3.5 mt-6 relative overflow-hidden">
+                            <button type="submit" disabled={loading || !isPasswordValid} className="w-full group btn-primary flex items-center justify-center gap-2 py-3.5 mt-6 relative overflow-hidden">
                               <span className="relative z-10 flex items-center gap-2 font-medium">{loading ? 'Creating Account...' : 'Create Account'}</span>
                             </button>
                           </>
@@ -319,14 +351,31 @@ export default function Auth() {
                                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Lock size={16} className="text-text-muted" /></div>
                                     <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full glass-input !pl-11" placeholder="••••••••" required minLength={8} maxLength={32} />
                                   </div>
+                                  <PasswordStrengthMeter password={password} onValidityChange={setIsPasswordValid} />
                                 </div>
-                                <button type="submit" disabled={loading || password.length < 8} className="w-full group btn-primary flex items-center justify-center gap-2 py-3.5 mt-6 relative overflow-hidden">
+                                <button type="submit" disabled={loading || !isPasswordValid} className="w-full group btn-primary flex items-center justify-center gap-2 py-3.5 mt-6 relative overflow-hidden">
                                   <span className="relative z-10 flex items-center gap-2 font-medium">{loading ? 'Creating Account...' : 'Create Account'}</span>
                                 </button>
                               </motion.div>
                             )}
                           </>
                         )}
+                      </motion.form>
+                    )}
+
+                    {/* FORGOT PASSWORD FORM */}
+                    {mode === 'forgot-password' && (
+                      <motion.form key="forgot-password" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} onSubmit={handleForgotPassword} className="space-y-5">
+                        <div>
+                          <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 font-body">Email</label>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Mail size={16} className="text-text-muted" /></div>
+                            <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full glass-input !pl-11" placeholder="you@university.edu" required />
+                          </div>
+                        </div>
+                        <button type="submit" disabled={loading || !email} className="w-full group btn-primary flex items-center justify-center gap-2 py-3.5 mt-6 relative overflow-hidden">
+                          <span className="relative z-10 flex items-center gap-2 font-medium">{loading ? 'Sending...' : 'Send Reset Link'}</span>
+                        </button>
                       </motion.form>
                     )}
 
@@ -338,14 +387,21 @@ export default function Auth() {
                   {mode === 'login' ? (
                     <>
                       Don't have an account? 
-                      <button onClick={() => {setMode('register'); setError(''); setEmail(''); setPassword(''); setRegisterStep(1); setDob('');}} className="font-medium text-primary hover:text-text-secondary transition-colors duration-300 ml-1">
+                      <button onClick={() => {setMode('register'); setError(''); setEmail(''); setPassword(''); setRegisterStep(1); setDob(''); setForgotPasswordMessage('');}} className="font-medium text-primary hover:text-text-secondary transition-colors duration-300 ml-1">
                         Register here
+                      </button>
+                    </>
+                  ) : mode === 'register' ? (
+                    <>
+                      Already have an account? 
+                      <button onClick={() => {setMode('login'); setError(''); setEmail(''); setPassword(''); setRegisterStep(1); setDob(''); setForgotPasswordMessage('');}} className="font-medium text-primary hover:text-text-secondary transition-colors duration-300 ml-1">
+                        Sign in instead
                       </button>
                     </>
                   ) : (
                     <>
-                      Already have an account? 
-                      <button onClick={() => {setMode('login'); setError(''); setEmail(''); setPassword(''); setRegisterStep(1); setDob('');}} className="font-medium text-primary hover:text-text-secondary transition-colors duration-300 ml-1">
+                      Remember your password? 
+                      <button onClick={() => {setMode('login'); setError(''); setEmail(''); setPassword(''); setRegisterStep(1); setDob(''); setForgotPasswordMessage('');}} className="font-medium text-primary hover:text-text-secondary transition-colors duration-300 ml-1">
                         Sign in instead
                       </button>
                     </>

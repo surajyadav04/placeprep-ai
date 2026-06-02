@@ -13,6 +13,8 @@ import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
+import ResetPassword from './pages/ResetPassword';
+
 function App() {
   return (
     <ThemeProvider>
@@ -21,6 +23,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Auth />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             
             {/* Protected Routes */}
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
