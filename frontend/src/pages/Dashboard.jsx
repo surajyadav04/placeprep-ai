@@ -22,7 +22,8 @@ export default function Dashboard() {
     if (userData && userData.role !== 'mentor') {
       const token = localStorage.getItem('token');
       if (token) {
-        axios.get('/api/activity/streak', {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+        axios.get(`${API_URL}/api/activity/streak`, {
           headers: { Authorization: `Bearer ${token}` }
         })
         .then(res => setCurrentStreak(res.data.currentStreak || 0))

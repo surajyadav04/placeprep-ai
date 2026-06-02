@@ -46,8 +46,9 @@ export default function ActivityTracker() {
         try {
           const token = localStorage.getItem('token');
           if (token) {
+            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
             await axios.post(
-              '/api/activity/ping',
+              `${API_URL}/api/activity/ping`,
               { seconds: secondsToPing },
               {
                 headers: {

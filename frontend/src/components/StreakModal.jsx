@@ -11,7 +11,8 @@ export default function StreakModal({ isOpen, onClose }) {
     if (isOpen) {
       setLoading(true);
       const token = localStorage.getItem('token');
-      axios.get('/api/activity/stats', {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      axios.get(`${API_URL}/api/activity/stats`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       .then(res => {
