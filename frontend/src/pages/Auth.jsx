@@ -249,119 +249,25 @@ export default function Auth() {
                       </motion.form>
                     )}
 
-                    {/* REGISTER FORM */}
+                    {/* REGISTER FORM (MAINTENANCE) */}
                     {mode === 'register' && (
-                      <motion.form key="register" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} onSubmit={handleRegister} className="space-y-5">
-                        
-                        {/* Role Selection */}
-                        <div>
-                          <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 font-body">Account Role</label>
-                          <div className="flex gap-4">
-                            <label className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border cursor-pointer transition-all ${role === 'student' ? 'border-primary bg-primary/10 text-primary' : 'border-black/10 glass-subtle text-text-secondary hover:bg-black/5'}`}>
-                              <input type="radio" name="role" value="student" checked={role === 'student'} onChange={() => {setRole('student'); setRegisterStep(1); setError('');}} className="hidden" />
-                              <GraduationCap size={16} /> <span className="font-medium text-sm">Student</span>
-                            </label>
-                            <label className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border cursor-pointer transition-all ${role === 'mentor' ? 'border-primary bg-primary/10 text-primary' : 'border-black/10 glass-subtle text-text-secondary hover:bg-black/5'}`}>
-                              <input type="radio" name="role" value="mentor" checked={role === 'mentor'} onChange={() => {setRole('mentor'); setError('');}} className="hidden" />
-                              <Building size={16} /> <span className="font-medium text-sm">Mentor</span>
-                            </label>
+                      <motion.div key="register" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5 text-center">
+                        <div className="p-6 rounded-2xl bg-primary/5 border border-primary/20 shadow-inner">
+                          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                            <span className="text-2xl">🚀</span>
                           </div>
+                          <h3 className="text-lg font-bold text-primary mb-3">Upgrading Verification System</h3>
+                          <p className="text-sm text-text-secondary leading-relaxed mb-4">
+                            Thank you for the incredible response! We are currently upgrading our verification system to provide a more secure onboarding experience.
+                          </p>
+                          <p className="text-sm text-text-secondary leading-relaxed mb-4">
+                            New registrations are temporarily paused while we complete these improvements. Existing users can continue using PlacePrep without interruption.
+                          </p>
+                          <p className="text-sm font-medium text-primary">
+                            We'll be back shortly. Thank you for your patience and support. ❤️
+                          </p>
                         </div>
-
-                        {role === 'mentor' ? (
-                          <>
-                            <div>
-                              <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 font-body">Email</label>
-                              <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Mail size={16} className="text-text-muted" /></div>
-                                <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full glass-input !pl-11" placeholder="you@company.com" required />
-                              </div>
-                            </div>
-                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="overflow-hidden">
-                              <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 font-body">Mentor Access Code</label>
-                              <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Zap size={16} className="text-text-muted" /></div>
-                                <input type="password" value={mentorCode} onChange={e => setMentorCode(e.target.value)} className="w-full glass-input !pl-11 border-primary/30 focus:border-primary/60" placeholder="Enter secret code" required />
-                              </div>
-                              <p className="text-[10px] text-text-tertiary mt-1 ml-1">Required to verify mentor status</p>
-                            </motion.div>
-                            <div>
-                              <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 font-body">Create Password</label>
-                              <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Lock size={16} className="text-text-muted" /></div>
-                                <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full glass-input !pl-11" placeholder="••••••••" required minLength={8} maxLength={32} />
-                              </div>
-                              <PasswordStrengthMeter password={password} onValidityChange={setIsPasswordValid} />
-                            </div>
-                            <button type="submit" disabled={loading || !isPasswordValid} className="w-full group btn-primary flex items-center justify-center gap-2 py-3.5 mt-6 relative overflow-hidden">
-                              <span className="relative z-10 flex items-center gap-2 font-medium">{loading ? 'Creating Account...' : 'Create Account'}</span>
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            {registerStep === 1 && (
-                              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-                                <div>
-                                  <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 font-body">Official University Email</label>
-                                  <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Mail size={16} className="text-text-muted" /></div>
-                                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full glass-input !pl-11" placeholder="you@university.edu" required />
-                                  </div>
-                                </div>
-                                <button type="button" onClick={handleVerifyEmail} disabled={loading || !email} className="w-full group btn-primary flex items-center justify-center gap-2 py-3.5 relative overflow-hidden">
-                                  <span className="relative z-10 flex items-center gap-2 font-medium">{loading ? 'Verifying...' : 'Verify Email'}</span>
-                                </button>
-                              </motion.div>
-                            )}
-
-                            {registerStep === 2 && studentProfile && (
-                              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-                                <div className="p-4 rounded-xl bg-black/5 border border-black/10">
-                                  <h3 className="text-sm font-bold text-primary mb-3">Student Profile Verified</h3>
-                                  <div className="space-y-2 text-sm text-text-secondary">
-                                    <p><span className="font-semibold text-text-primary">Name:</span> {studentProfile.full_name}</p>
-                                    <p><span className="font-semibold text-text-primary">Roll No:</span> {studentProfile.roll_no}</p>
-                                    <p><span className="font-semibold text-text-primary">Branch:</span> {studentProfile.branch}</p>
-                                    <p><span className="font-semibold text-text-primary">Batch:</span> {studentProfile.batch}</p>
-                                  </div>
-                                </div>
-                                
-                                <div>
-                                  <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 font-body">Date of Birth</label>
-                                  <div className="relative">
-                                    <input type="date" value={dob} onChange={e => setDob(e.target.value)} className="w-full glass-input" required />
-                                  </div>
-                                  <p className="text-[10px] text-text-tertiary mt-1 ml-1">Required to verify identity</p>
-                                  <p className="text-[10px] text-text-tertiary mt-1 ml-1 opacity-70">If DOB verification fails, try entering the date in MM/DD/YYYY format.</p>
-                                </div>
-                                
-                                <button type="button" onClick={handleVerifyDob} disabled={loading || !dob} className="w-full group btn-primary flex items-center justify-center gap-2 py-3.5 relative overflow-hidden">
-                                  <span className="relative z-10 flex items-center gap-2 font-medium">{loading ? 'Verifying...' : 'Verify Identity'}</span>
-                                </button>
-                              </motion.div>
-                            )}
-
-                            {registerStep === 3 && (
-                              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-                                <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/20 text-green-700 dark:text-green-400 text-xs font-medium text-center">
-                                  Identity Verified Successfully.
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 font-body">Create Password</label>
-                                  <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Lock size={16} className="text-text-muted" /></div>
-                                    <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full glass-input !pl-11" placeholder="••••••••" required minLength={8} maxLength={32} />
-                                  </div>
-                                  <PasswordStrengthMeter password={password} onValidityChange={setIsPasswordValid} />
-                                </div>
-                                <button type="submit" disabled={loading || !isPasswordValid} className="w-full group btn-primary flex items-center justify-center gap-2 py-3.5 mt-6 relative overflow-hidden">
-                                  <span className="relative z-10 flex items-center gap-2 font-medium">{loading ? 'Creating Account...' : 'Create Account'}</span>
-                                </button>
-                              </motion.div>
-                            )}
-                          </>
-                        )}
-                      </motion.form>
+                      </motion.div>
                     )}
 
                     {/* FORGOT PASSWORD FORM */}
