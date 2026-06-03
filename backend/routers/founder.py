@@ -227,3 +227,122 @@ async def get_funnel_analytics(current_user: User = Depends(get_current_user), d
         "interview_started": interview_started or 0,
         "interview_completed": interview_completed or 0
     }
+
+# --- Phase 4: Founder Control Center ---
+
+class RegistrationSetting(BaseModel):
+    is_open: bool
+
+class NotificationRequest(BaseModel):
+    message: str
+    audience: str
+
+class BroadcastRequest(BaseModel):
+    subject: str
+    message: str
+    audience: str
+
+class RoleUpdateRequest(BaseModel):
+    role: str
+
+async def log_audit(db: AsyncSession, founder_id: int, module: str, action: str):
+    from models import Resource
+    audit = Resource(
+        title="SYSTEM_AUDIT_LOG",
+        description=action,
+        file_path=module,
+        uploaded_by=founder_id
+    )
+    db.add(audit)
+    await db.commit()
+
+@router.get("/settings/registration")
+async def get_registration_setting(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if current_user.role != "founder": raise HTTPException(status_code=403, detail="Founder access required")
+    from models import Resource
+    setting = await db.scalar(select(Resource).where(Resource.title == "SYSTEM_SETTING", Resource.file_path == "registration_open"))
+    is_open = True
+    if setting and setting.description == "false":
+        is_open = False
+    return {"is_open": is_open}
+
+@router.post("/settings/registration")
+async def update_registration_setting(req: RegistrationSetting, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if current_user.role != "founder": raise HTTPException(status_code=403, detail="Founder access required")
+    from models import Resource
+    setting = await db.scalar(select(Resource).where(Resource.title == "SYSTEM_SETTING", Resource.file_path == "registration_open"))
+    if not setting:
+        setting = Resource(title="SYSTEM_SETTING", file_path="registration_open", uploaded_by=current_user.id)
+        db.add(setting)
+    
+    setting.description = "true" if req.is_open else "false"
+    await db.commit()
+    await log_audit(db, current_user.id, "REGISTRATION", f"Registration {'opened' if req.is_open else 'closed'}")
+    return {"success": True, "is_open": req.is_open}
+
+@router.get("/notifications")
+async def get_notifications(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if current_user.role != "founder": raise HTTPException(status_code=403, detail="Founder access required")
+    from models import Resource
+    notifs = await db.execute(select(Resource).where(Resource.title == "SYSTEM_NOTIFICATION").order_by(desc(Resource.created_at)))
+    return [{"id": n.id, "message": n.description, "audience": n.file_path, "date": n.created_at} for n in notifs.scalars().all()]
+
+@router.post("/notifications")
+async def create_notification(req: NotificationRequest, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if current_user.role != "founder": raise HTTPException(status_code=403, detail="Founder access required")
+    from models import Resource
+    notif = Resource(
+        title="SYSTEM_NOTIFICATION",
+        description=req.message,
+        file_path=req.audience,
+        uploaded_by=current_user.id
+    )
+    db.add(notif)
+    await db.commit()
+    await log_audit(db, current_user.id, "NOTIFICATION", f"Created notification for {req.audience}")
+    return {"success": True}
+
+@router.post("/broadcast")
+async def send_broadcast(req: BroadcastRequest, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if current_user.role != "founder": raise HTTPException(status_code=403, detail="Founder access required")
+    query = select(User.email)
+    if req.audience != "all":
+        query = query.where(User.role == req.audience)
+    
+    users = await db.execute(query)
+    emails = [row[0] for row in users.all()]
+    
+    try:
+        from email_service import send_email
+    except ImportError:
+        from backend.email_service import send_email
+        
+    import asyncio
+    success_count = 0
+    for email in emails:
+        if await asyncio.to_thread(send_email, email, req.subject, req.message):
+            success_count += 1
+            
+    await log_audit(db, current_user.id, "BROADCAST", f"Sent email to {len(emails)} {req.audience}s")
+    return {"success": True, "sent": success_count, "attempted": len(emails)}
+
+@router.post("/users/{user_id}/role")
+async def update_user_role(user_id: int, req: RoleUpdateRequest, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if current_user.role != "founder": raise HTTPException(status_code=403, detail="Founder access required")
+    target = await db.scalar(select(User).where(User.id == user_id))
+    if not target: raise HTTPException(status_code=404, detail="User not found")
+    if target.role == "founder": raise HTTPException(status_code=400, detail="Cannot modify founder role")
+    if req.role not in ["student", "mentor"]: raise HTTPException(status_code=400, detail="Invalid role")
+    
+    old_role = target.role
+    target.role = req.role
+    await db.commit()
+    await log_audit(db, current_user.id, "MENTOR_MGMT", f"Changed {target.email} from {old_role} to {req.role}")
+    return {"success": True}
+
+@router.get("/audit-logs")
+async def get_audit_logs(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if current_user.role != "founder": raise HTTPException(status_code=403, detail="Founder access required")
+    from models import Resource
+    logs = await db.execute(select(Resource).where(Resource.title == "SYSTEM_AUDIT_LOG").order_by(desc(Resource.created_at)).limit(100))
+    return [{"id": l.id, "action": l.description, "module": l.file_path, "date": l.created_at, "by": l.uploaded_by} for l in logs.scalars().all()]
