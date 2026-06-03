@@ -5,6 +5,7 @@ import { Mic, FileText, BarChart2, ArrowRight, Zap, Sun, Moon } from 'lucide-rea
 import ParticleField from '../components/ParticleField';
 import GlassCard from '../components/GlassCard';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 
 const stagger = {
   hidden: {},
@@ -73,6 +74,7 @@ export default function Landing() {
   const [hidden, setHidden] = useState(false);
   const { scrollY } = useScroll();
   const { theme, toggleTheme } = useTheme();
+  const { user } = useAuth();
 
   useMotionValueEvent(scrollY, "change", (latest) => {
     const previous = scrollY.getPrevious();
@@ -114,7 +116,7 @@ export default function Landing() {
         }}
       >
         <Link to="/" className="flex items-center gap-2.5 pl-2">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center shadow-sm bg-primary text-white">
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-sm bg-primary text-white ${user ? 'auth-logo-glow' : ''}`}>
             <Zap size={14} />
           </div>
           <span className="text-sm font-bold tracking-tight text-primary" style={{ fontFamily: 'var(--font-display)' }}>

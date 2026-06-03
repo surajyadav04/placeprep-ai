@@ -300,3 +300,16 @@
 .animate-slide-up { animation: slideUp 0.8s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
 .animate-fade-in-up { animation: slideUp 0.8s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
 .animate-float { animation: float 6s ease-in-out infinite; }
+
+@keyframes ai-auth-pulse {
+  0%, 100% {
+    box-shadow: 0 0 4px 1px rgba(129, 140, 248, 0.3), inset 0 0 2px rgba(255, 255, 255, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 12px 4px rgba(129, 140, 248, 0.6), 0 0 24px 8px rgba(192, 132, 252, 0.4), inset 0 0 6px rgba(255, 255, 255, 0.4);
+  }
+}
+
+.auth-logo-glow {
+  animation: ai-auth-pulse 2.5s ease-in-out infinite;
+}

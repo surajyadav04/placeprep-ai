@@ -61,7 +61,7 @@ export default function Layout({ children }) {
         }}
       >
         <Link to="/" className="flex items-center gap-2.5 mr-6 pl-2">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-primary text-white shadow-sm">
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-primary text-white shadow-sm ${user ? 'auth-logo-glow' : ''}`}>
             <Flame size={14} />
           </div>
           <span className="text-sm font-bold tracking-tight" style={{ fontFamily: 'var(--font-display)', color: 'var(--color-primary)' }}>
@@ -124,7 +124,7 @@ export default function Layout({ children }) {
         }}
       >
         <Link to="/" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-primary text-white shadow-sm">
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-primary text-white shadow-sm ${user ? 'auth-logo-glow' : ''}`}>
             <Flame size={14} />
           </div>
           <span className="text-sm font-bold tracking-tight" style={{ fontFamily: 'var(--font-display)', color: 'var(--color-primary)' }}>
