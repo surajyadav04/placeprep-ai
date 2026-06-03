@@ -332,6 +332,7 @@ export default function Auth() {
                                     <input type="date" value={dob} onChange={e => setDob(e.target.value)} className="w-full glass-input" required />
                                   </div>
                                   <p className="text-[10px] text-text-tertiary mt-1 ml-1">Required to verify identity</p>
+                                  <p className="text-[10px] text-text-tertiary mt-1 ml-1 opacity-70">If DOB verification fails, try entering the date in MM/DD/YYYY format.</p>
                                 </div>
                                 
                                 <button type="button" onClick={handleVerifyDob} disabled={loading || !dob} className="w-full group btn-primary flex items-center justify-center gap-2 py-3.5 relative overflow-hidden">
