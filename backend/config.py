@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     secret_key: str = "super_secret_key_change_in_production"
     
     mentor_access_code: str = "PLACEMENT2026"
+    registration_disabled: bool = True
 
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(__file__), ".env"),

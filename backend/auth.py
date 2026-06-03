@@ -143,6 +143,12 @@ async def verify_student_dob(req: VerifyStudentDobRequest, db: AsyncSession = De
 
 @router.post("/register")
 async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
+    if settings.registration_disabled:
+        raise HTTPException(
+            status_code=503,
+            detail="Registration is temporarily paused for security upgrades. Please try again later."
+        )
+        
     email = req.email.lower().strip()
     role = req.role.strip().lower()
     if role not in ["student", "mentor"]:
