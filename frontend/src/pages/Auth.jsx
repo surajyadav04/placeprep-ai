@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, LogIn, Zap, ArrowLeft, Building, GraduationCap, Sun, Moon } from 'lucide-react';
@@ -8,6 +8,8 @@ import ParticleField from '../components/ParticleField';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import PasswordStrengthMeter from '../components/PasswordStrengthMeter';
+import { auth as firebaseAuth } from '../firebase';
+import { isSignInWithEmailLink, signInWithEmailLink, sendSignInLinkToEmail } from 'firebase/auth';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -29,6 +31,31 @@ export default function Auth() {
   const [dob, setDob] = useState('');
   const [isPasswordValid, setIsPasswordValid] = useState(false);
   const [forgotPasswordMessage, setForgotPasswordMessage] = useState('');
+  const [registrationMode, setRegistrationMode] = useState('firebase');
+  const [firebaseEmailPrompt, setFirebaseEmailPrompt] = useState(false);
+
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/api/auth/register/status`);
+        setRegistrationMode(res.data.mode || 'firebase');
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchStatus();
+
+    if (isSignInWithEmailLink(firebaseAuth, window.location.href)) {
+      setMode('register');
+      const savedEmail = window.localStorage.getItem('emailForSignIn');
+      if (!savedEmail) {
+        setFirebaseEmailPrompt(true);
+      } else {
+        setEmail(savedEmail);
+      }
+      setRegisterStep(5);
+    }
+  }, []);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -82,23 +109,71 @@ export default function Auth() {
   const handleRegister = async (e) => {
     e.preventDefault();
     if (role === 'student' && registerStep !== 3) return;
-    if (!isPasswordValid) {
+    if (!isPasswordValid && registrationMode === 'otp') {
       setError('Please ensure your password meets all strength requirements.');
       return;
     }
     
     setLoading(true); setError('');
     try {
-      const payload = { email, password, role };
-      if (role === 'mentor') {
-        payload.mentor_code = mentorCode;
-      } else if (role === 'student') {
-        payload.dob = dob;
+      if (registrationMode === 'otp') {
+        const payload = { email, password, role };
+        if (role === 'mentor') payload.mentor_code = mentorCode;
+        else if (role === 'student') payload.dob = dob;
+        await axios.post(`${API_URL}/api/auth/register/init`, payload);
+        setRegisterStep(role === 'mentor' ? 2 : 4);
+      } else {
+        const actionCodeSettings = {
+          url: window.location.href,
+          handleCodeInApp: true,
+        };
+        await sendSignInLinkToEmail(firebaseAuth, email, actionCodeSettings);
+        window.localStorage.setItem('emailForSignIn', email);
+        window.localStorage.setItem('roleForSignIn', role);
+        if (role === 'student') window.localStorage.setItem('dobForSignIn', dob);
+        if (role === 'mentor') window.localStorage.setItem('mentorCodeForSignIn', mentorCode);
+        
+        setRegisterStep(role === 'mentor' ? 2 : 4);
       }
-      const res = await axios.post(`${API_URL}/api/auth/register/init`, payload);
-      setRegisterStep(role === 'mentor' ? 2 : 4);
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to initialize registration');
+      setError(err.response?.data?.detail || err.message || 'Failed to initialize registration');
+    }
+    setLoading(false);
+  };
+
+  const handleFirebaseComplete = async (e) => {
+    e.preventDefault();
+    if (!isPasswordValid) {
+      setError('Please ensure your password meets all strength requirements.');
+      return;
+    }
+    setLoading(true); setError('');
+    try {
+      let currentEmail = email;
+      if (firebaseEmailPrompt) window.localStorage.setItem('emailForSignIn', currentEmail);
+      
+      const result = await signInWithEmailLink(firebaseAuth, currentEmail, window.location.href);
+      const idToken = await result.user.getIdToken();
+      
+      const savedRole = window.localStorage.getItem('roleForSignIn') || role;
+      const savedDob = window.localStorage.getItem('dobForSignIn') || dob;
+      const savedMentorCode = window.localStorage.getItem('mentorCodeForSignIn') || mentorCode;
+      
+      const payload = { firebase_id_token: idToken, password, role: savedRole };
+      if (savedRole === 'student') payload.dob = savedDob;
+      if (savedRole === 'mentor') payload.mentor_code = savedMentorCode;
+      
+      const res = await axios.post(`${API_URL}/api/auth/register/complete`, payload);
+      
+      window.localStorage.removeItem('emailForSignIn');
+      window.localStorage.removeItem('roleForSignIn');
+      window.localStorage.removeItem('dobForSignIn');
+      window.localStorage.removeItem('mentorCodeForSignIn');
+      
+      login(res.data.access_token, res.data.user);
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.response?.data?.detail || err.message || 'Firebase Verification Failed');
     }
     setLoading(false);
   };
@@ -304,16 +379,18 @@ export default function Auth() {
                                   </div>
                                   <p className="text-[10px] text-text-tertiary mt-1 ml-1">Required to verify mentor status</p>
                                 </motion.div>
-                                <div>
-                                  <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 font-body">Create Password</label>
-                                  <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Lock size={16} className="text-text-muted" /></div>
-                                    <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full glass-input !pl-11" placeholder="••••••••" required minLength={8} maxLength={32} />
+                                {registrationMode === 'otp' && (
+                                  <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 font-body">Create Password</label>
+                                    <div className="relative">
+                                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Lock size={16} className="text-text-muted" /></div>
+                                      <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full glass-input !pl-11" placeholder="••••••••" required minLength={8} maxLength={32} />
+                                    </div>
+                                    <PasswordStrengthMeter password={password} onValidityChange={setIsPasswordValid} />
                                   </div>
-                                  <PasswordStrengthMeter password={password} onValidityChange={setIsPasswordValid} />
-                                </div>
-                                <button type="submit" onClick={handleRegister} disabled={loading || !isPasswordValid} className="w-full group btn-primary flex items-center justify-center gap-2 py-3.5 mt-6 relative overflow-hidden">
-                                  <span className="relative z-10 flex items-center gap-2 font-medium">{loading ? 'Sending OTP...' : 'Continue'}</span>
+                                )}
+                                <button type="submit" onClick={handleRegister} disabled={loading || (registrationMode === 'otp' && !isPasswordValid)} className="w-full group btn-primary flex items-center justify-center gap-2 py-3.5 mt-6 relative overflow-hidden">
+                                  <span className="relative z-10 flex items-center gap-2 font-medium">{loading ? 'Sending...' : 'Continue'}</span>
                                 </button>
                               </motion.div>
                             )}
@@ -323,15 +400,21 @@ export default function Auth() {
                                 <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 mb-4">
                                   <Mail size={32} className="text-primary mx-auto mb-3" />
                                   <h3 className="text-sm font-bold text-primary mb-1">Verify Your Email</h3>
-                                  <p className="text-xs text-text-secondary">We sent a 6-digit verification code to <strong>{email}</strong>.</p>
+                                  <p className="text-xs text-text-secondary">We sent a {registrationMode === 'otp' ? '6-digit verification code' : 'verification link'} to <strong>{email}</strong>.</p>
                                 </div>
-                                <div>
-                                  <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 font-body">Enter Verification Code</label>
-                                  <input type="text" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} className="w-full glass-input text-center text-xl tracking-[0.5em] font-medium" placeholder="------" required minLength={6} maxLength={6} />
-                                </div>
-                                <button type="submit" onClick={handleVerifyOtp} disabled={loading || otp.length !== 6} className="w-full group btn-primary flex items-center justify-center gap-2 py-3.5 mt-6 relative overflow-hidden">
-                                  <span className="relative z-10 flex items-center gap-2 font-medium">{loading ? 'Verifying...' : 'Complete Registration'}</span>
-                                </button>
+                                {registrationMode === 'otp' ? (
+                                  <>
+                                    <div>
+                                      <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 font-body">Enter Verification Code</label>
+                                      <input type="text" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} className="w-full glass-input text-center text-xl tracking-[0.5em] font-medium" placeholder="------" required minLength={6} maxLength={6} />
+                                    </div>
+                                    <button type="submit" onClick={handleVerifyOtp} disabled={loading || otp.length !== 6} className="w-full group btn-primary flex items-center justify-center gap-2 py-3.5 mt-6 relative overflow-hidden">
+                                      <span className="relative z-10 flex items-center gap-2 font-medium">{loading ? 'Verifying...' : 'Complete Registration'}</span>
+                                    </button>
+                                  </>
+                                ) : (
+                                  <p className="text-sm font-medium text-text-secondary mt-4">Please check your inbox and click the link to continue.</p>
+                                )}
                               </motion.div>
                             )}
                           </>
@@ -384,16 +467,18 @@ export default function Auth() {
                                 <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/20 text-green-700 dark:text-green-400 text-xs font-medium text-center">
                                   Identity Verified Successfully.
                                 </div>
-                                <div>
-                                  <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 font-body">Create Password</label>
-                                  <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Lock size={16} className="text-text-muted" /></div>
-                                    <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full glass-input !pl-11" placeholder="••••••••" required minLength={8} maxLength={32} />
+                                {registrationMode === 'otp' && (
+                                  <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 font-body">Create Password</label>
+                                    <div className="relative">
+                                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Lock size={16} className="text-text-muted" /></div>
+                                      <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full glass-input !pl-11" placeholder="••••••••" required minLength={8} maxLength={32} />
+                                    </div>
+                                    <PasswordStrengthMeter password={password} onValidityChange={setIsPasswordValid} />
                                   </div>
-                                  <PasswordStrengthMeter password={password} onValidityChange={setIsPasswordValid} />
-                                </div>
-                                <button type="button" onClick={handleRegister} disabled={loading || !isPasswordValid} className="w-full group btn-primary flex items-center justify-center gap-2 py-3.5 mt-6 relative overflow-hidden">
-                                  <span className="relative z-10 flex items-center gap-2 font-medium">{loading ? 'Sending OTP...' : 'Continue'}</span>
+                                )}
+                                <button type="button" onClick={handleRegister} disabled={loading || (registrationMode === 'otp' && !isPasswordValid)} className="w-full group btn-primary flex items-center justify-center gap-2 py-3.5 mt-6 relative overflow-hidden">
+                                  <span className="relative z-10 flex items-center gap-2 font-medium">{loading ? 'Sending...' : 'Continue'}</span>
                                 </button>
                               </motion.div>
                             )}
@@ -403,18 +488,58 @@ export default function Auth() {
                                 <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 mb-4">
                                   <Mail size={32} className="text-primary mx-auto mb-3" />
                                   <h3 className="text-sm font-bold text-primary mb-1">Verify Your Email</h3>
-                                  <p className="text-xs text-text-secondary">We sent a 6-digit verification code to <strong>{email}</strong>.</p>
+                                  <p className="text-xs text-text-secondary">We sent a {registrationMode === 'otp' ? '6-digit verification code' : 'verification link'} to <strong>{email}</strong>.</p>
                                 </div>
-                                <div>
-                                  <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 font-body">Enter Verification Code</label>
-                                  <input type="text" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} className="w-full glass-input text-center text-xl tracking-[0.5em] font-medium" placeholder="------" required minLength={6} maxLength={6} />
-                                </div>
-                                <button type="submit" onClick={handleVerifyOtp} disabled={loading || otp.length !== 6} className="w-full group btn-primary flex items-center justify-center gap-2 py-3.5 mt-6 relative overflow-hidden">
-                                  <span className="relative z-10 flex items-center gap-2 font-medium">{loading ? 'Verifying...' : 'Complete Registration'}</span>
-                                </button>
+                                {registrationMode === 'otp' ? (
+                                  <>
+                                    <div>
+                                      <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 font-body">Enter Verification Code</label>
+                                      <input type="text" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} className="w-full glass-input text-center text-xl tracking-[0.5em] font-medium" placeholder="------" required minLength={6} maxLength={6} />
+                                    </div>
+                                    <button type="submit" onClick={handleVerifyOtp} disabled={loading || otp.length !== 6} className="w-full group btn-primary flex items-center justify-center gap-2 py-3.5 mt-6 relative overflow-hidden">
+                                      <span className="relative z-10 flex items-center gap-2 font-medium">{loading ? 'Verifying...' : 'Complete Registration'}</span>
+                                    </button>
+                                  </>
+                                ) : (
+                                  <p className="text-sm font-medium text-text-secondary mt-4">Please check your inbox and click the link to continue.</p>
+                                )}
                               </motion.div>
                             )}
                           </>
+                        )}
+                        
+                        {registerStep === 5 && (
+                          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5 text-center">
+                            <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20 mb-4">
+                              <Zap size={32} className="text-green-600 mx-auto mb-3" />
+                              <h3 className="text-sm font-bold text-green-700 dark:text-green-400 mb-1">Almost Done!</h3>
+                              <p className="text-xs text-green-700/80 dark:text-green-400/80">Please finish setting up your account.</p>
+                            </div>
+                            
+                            {firebaseEmailPrompt && (
+                              <div className="mb-4">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 font-body text-left">Confirm Email</label>
+                                <div className="relative text-left">
+                                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Mail size={16} className="text-text-muted" /></div>
+                                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full glass-input !pl-11" placeholder="you@university.edu" required />
+                                </div>
+                                <p className="text-[10px] text-text-tertiary mt-1 text-left">We need your email again because you opened the link in a different browser.</p>
+                              </div>
+                            )}
+                            
+                            <div className="text-left">
+                              <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 font-body">Create Password</label>
+                              <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Lock size={16} className="text-text-muted" /></div>
+                                <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full glass-input !pl-11" placeholder="••••••••" required minLength={8} maxLength={32} />
+                              </div>
+                              <PasswordStrengthMeter password={password} onValidityChange={setIsPasswordValid} />
+                            </div>
+                            
+                            <button type="button" onClick={handleFirebaseComplete} disabled={loading || !isPasswordValid || (firebaseEmailPrompt && !email)} className="w-full group btn-primary flex items-center justify-center gap-2 py-3.5 mt-6 relative overflow-hidden">
+                              <span className="relative z-10 flex items-center gap-2 font-medium">{loading ? 'Verifying...' : 'Complete Registration'}</span>
+                            </button>
+                          </motion.div>
                         )}
                       </motion.form>
                     )}
