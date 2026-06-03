@@ -19,3 +19,4 @@ openpyxl
 beautifulsoup4
 requests
 resend
+firebase-admin
