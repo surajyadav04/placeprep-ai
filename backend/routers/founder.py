@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_, desc
+from typing import Optional
 from datetime import datetime, timedelta, timezone
 
 try:
@@ -61,4 +62,57 @@ async def get_founder_stats(current_user: User = Depends(get_current_user), db: 
         "new_users_this_week": new_users_this_week or 0,
         "resume_analyses": resume_analyses or 0,
         "interview_evaluations": interview_evaluations or 0
+    }
+
+@router.get("/users")
+async def get_founder_users(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    search: Optional[str] = None,
+    role: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    if current_user.role != "founder":
+        raise HTTPException(status_code=403, detail="Founder access required")
+        
+    query = select(User)
+    
+    if search:
+        search_term = f"%{search}%"
+        query = query.where(
+            or_(
+                User.name.ilike(search_term),
+                User.email.ilike(search_term)
+            )
+        )
+        
+    if role and role != "all":
+        query = query.where(User.role == role)
+        
+    # Get total count for pagination
+    total_query = select(func.count()).select_from(query.subquery())
+    total = await db.scalar(total_query)
+    
+    # Sort by created_at desc and paginate
+    query = query.order_by(desc(User.created_at)).offset((page - 1) * limit).limit(limit)
+    
+    result = await db.execute(query)
+    users = result.scalars().all()
+    
+    return {
+        "users": [
+            {
+                "id": u.id,
+                "name": u.name,
+                "email": u.email,
+                "role": u.role,
+                "created_at": u.created_at
+            }
+            for u in users
+        ],
+        "total": total or 0,
+        "page": page,
+        "limit": limit,
+        "total_pages": ((total or 0) + limit - 1) // limit if total else 0
     }

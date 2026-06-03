@@ -4,6 +4,7 @@ import { Users, User, UserCheck, Shield, Activity, TrendingUp, FileText, Mic, Al
 import axios from 'axios';
 import Layout from '../components/Layout';
 import GlassCard from '../components/GlassCard';
+import UsersTable from '../components/UsersTable';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -157,6 +158,11 @@ export default function FounderDashboard() {
             <p className="text-xs text-text-secondary mt-1">AI interviews completed</p>
           </GlassCard>
         </motion.div>
+      )}
+
+      {/* Phase 2: Users Management Table */}
+      {!loading && !error && (
+        <UsersTable API_URL={API_URL} token={localStorage.getItem('token')} />
       )}
     </Layout>
   );
