@@ -45,7 +45,7 @@ async def get_founder_stats(current_user: User = Depends(get_current_user), db: 
     active_today = await db.scalar(select(func.count(UserActivity.id)).where(UserActivity.date == today_str))
     
     # New Users This Week
-    one_week_ago = dt.datetime.now(timezone.utc) - timedelta(days=7)
+    one_week_ago = dt.datetime.utcnow() - timedelta(days=7)
     new_users_this_week = await db.scalar(select(func.count(User.id)).where(User.created_at >= one_week_ago))
     
     # Feature Usage
