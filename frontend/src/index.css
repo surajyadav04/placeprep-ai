@@ -300,16 +300,3 @@
 .animate-slide-up { animation: slideUp 0.8s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
 .animate-fade-in-up { animation: slideUp 0.8s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
 .animate-float { animation: float 6s ease-in-out infinite; }
-
-@keyframes ai-auth-pulse {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.0);
-  }
-  50% {
-    box-shadow: 0 0 14px 2px rgba(99, 102, 241, 0.2), 0 0 24px 4px rgba(30, 41, 59, 0.1);
-  }
-}
-
-.auth-logo-glow {
-  animation: ai-auth-pulse 4s ease-in-out infinite;
-}

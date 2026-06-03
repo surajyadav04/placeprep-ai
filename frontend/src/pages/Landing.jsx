@@ -116,8 +116,8 @@ export default function Landing() {
         }}
       >
         <Link to="/" className="flex items-center gap-2.5 pl-2">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-sm bg-primary text-white ${user ? 'auth-logo-glow' : ''}`}>
-            <Zap size={14} />
+          <div className={user ? "w-8 h-8 rounded-full flex items-center justify-center shadow-sm bg-primary text-white" : "w-8 h-8 rounded-full flex items-center justify-center border border-[var(--color-border)] bg-transparent text-primary"}>
+            <Zap size={14} fill={user ? "currentColor" : "none"} />
           </div>
           <span className="text-sm font-bold tracking-tight text-primary" style={{ fontFamily: 'var(--font-display)' }}>
             PlacePrep
