@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     founder_email: str | None = None
     founder_name: str | None = "Founder"
     founder_password: str | None = None
+    
+    frontend_url: str = "https://placeprepai.vercel.app"
 
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(__file__), ".env"),
