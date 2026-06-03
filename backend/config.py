@@ -15,6 +15,14 @@ class Settings(BaseSettings):
     
     mentor_access_code: str = "PLACEMENT2026"
     registration_disabled: bool = True
+    
+    # SMTP Email Configuration
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from: str | None = None
+    smtp_test_enabled: bool = True
 
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(__file__), ".env"),

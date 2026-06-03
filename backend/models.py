@@ -193,3 +193,19 @@ class PasswordResetToken(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     
     user = relationship("User")
+
+class PendingRegistration(Base):
+    __tablename__ = "pending_registrations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, index=True, nullable=False)
+    
+    password_hash = Column(String, nullable=False)
+    role = Column(String, default="student")
+    dob = Column(String, nullable=True)
+    mentor_code = Column(String, nullable=True)
+    
+    otp_hash = Column(String, nullable=False)
+    attempts = Column(Integer, default=0)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

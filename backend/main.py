@@ -20,6 +20,7 @@ try:
     from .routers.resources import router as resources_router
     from .routers.activity import router as activity_router
     from .routers.analytics import router as analytics_router
+    from .routers.admin import router as admin_router
     from .services.resume_service import (
         validate_file,
         extract_text,
@@ -43,6 +44,7 @@ except ImportError:
     from routers.resources import router as resources_router
     from routers.activity import router as activity_router
     from routers.analytics import router as analytics_router
+    from routers.admin import router as admin_router
     from services.resume_service import (
         validate_file,
         extract_text,
@@ -120,6 +122,7 @@ app.include_router(opportunities_router)
 app.include_router(resources_router)
 app.include_router(activity_router)
 app.include_router(analytics_router)
+app.include_router(admin_router)
 
 
 # ---------- Schemas ----------

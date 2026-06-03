@@ -6,15 +6,15 @@ from passlib.context import CryptContext
 from jose import JWTError, jwt
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 
 try:
     from .database import get_db
-    from .models import User, StudentMaster, PasswordResetToken
+    from .models import User, StudentMaster, PasswordResetToken, PendingRegistration
     from .config import settings
 except ImportError:
     from database import get_db
-    from models import User, StudentMaster, PasswordResetToken
+    from models import User, StudentMaster, PasswordResetToken, PendingRegistration
     from config import settings
 
 # --- Config Setup ---
@@ -54,6 +54,10 @@ class VerifyStudentRequest(BaseModel):
 class VerifyStudentDobRequest(BaseModel):
     email: str
     dob: str
+
+class VerifyOTPRequest(BaseModel):
+    email: str
+    otp: str
 
 class LoginRequest(BaseModel):
     email: str
@@ -140,6 +144,155 @@ async def verify_student_dob(req: VerifyStudentDobRequest, db: AsyncSession = De
         return {"verified": True}
         
     return {"verified": False, "message": "Date of Birth does not match university records."}
+
+@router.post("/register/init")
+async def register_init(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
+    email = req.email.lower().strip()
+    role = req.role.strip().lower()
+    if role not in ["student", "mentor"]:
+        role = "student"
+        
+    # Check if user already exists
+    existing_user = await db.scalar(select(User).where(User.email == email))
+    if existing_user:
+        if role == "student":
+            raise HTTPException(status_code=400, detail="This student account has already been registered.")
+        else:
+            raise HTTPException(status_code=400, detail="Account already exists. Please login.")
+            
+    # Cooldown Check
+    recent_pending = await db.scalar(
+        select(PendingRegistration)
+        .where(PendingRegistration.email == email)
+        .order_by(PendingRegistration.created_at.desc())
+    )
+    if recent_pending:
+        delta = datetime.now(timezone.utc) - recent_pending.created_at.replace(tzinfo=timezone.utc)
+        if delta.total_seconds() < 60:
+            raise HTTPException(status_code=429, detail="Please wait 60 seconds before requesting another OTP.")
+
+    if role == "student":
+        student_record = await db.scalar(select(StudentMaster).where(StudentMaster.official_email == email))
+        if not student_record:
+            raise HTTPException(status_code=404, detail="Email not found in university records.")
+            
+        if not req.dob:
+            raise HTTPException(status_code=400, detail="Date of Birth is required for student registration.")
+            
+        db_dob = normalize_dob(student_record.dob)
+        req_dob = normalize_dob(req.dob)
+        
+        if db_dob != req_dob:
+            raise HTTPException(status_code=403, detail="Date of Birth does not match university records.")
+            
+    elif role == "mentor":
+        if req.mentor_code != settings.mentor_access_code:
+            raise HTTPException(status_code=403, detail="Invalid mentor access code.")
+
+    validate_password_strength(req.password)
+    
+    # Generate OTP
+    import random
+    raw_otp = f"{random.randint(0, 999999):06d}"
+    otp_hash = hashlib.sha256(raw_otp.encode()).hexdigest()
+    
+    # Clean up old pending registrations for this email
+    await db.execute(delete(PendingRegistration).where(PendingRegistration.email == email))
+    
+    pending = PendingRegistration(
+        email=email,
+        password_hash=get_password_hash(req.password),
+        role=role,
+        dob=req.dob if role == "student" else None,
+        mentor_code=req.mentor_code if role == "mentor" else None,
+        otp_hash=otp_hash,
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=10)
+    )
+    db.add(pending)
+    await db.commit()
+    
+    # Send Email
+    if settings.resend_api_key:
+        try:
+            import resend
+            resend.api_key = settings.resend_api_key
+            resend.Emails.send({
+                "from": settings.resend_from_email,
+                "to": email,
+                "subject": "PlacePrep AI - Verify Your Email",
+                "html": f"<p>Your verification code is: <strong>{raw_otp}</strong></p><p>It expires in 10 minutes.</p>"
+            })
+        except Exception as e:
+            print(f"Failed to send email via resend: {e}")
+    else:
+        print(f"--- DEVELOPMENT MODE: OTP for {email} is {raw_otp} ---")
+        print("---------------------------------------------------------")
+        
+    return {"message": "OTP sent to email."}
+
+@router.post("/register/verify")
+async def register_verify(req: VerifyOTPRequest, db: AsyncSession = Depends(get_db)):
+    email = req.email.lower().strip()
+    
+    pending = await db.scalar(
+        select(PendingRegistration)
+        .where(PendingRegistration.email == email)
+    )
+    
+    if not pending:
+        raise HTTPException(status_code=400, detail="No pending registration found or it has expired.")
+        
+    if pending.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+        await db.delete(pending)
+        await db.commit()
+        raise HTTPException(status_code=400, detail="OTP has expired. Please register again.")
+        
+    if pending.attempts >= 3:
+        await db.delete(pending)
+        await db.commit()
+        raise HTTPException(status_code=400, detail="Too many failed attempts. Please register again.")
+        
+    otp_hash = hashlib.sha256(req.otp.encode()).hexdigest()
+    if pending.otp_hash != otp_hash:
+        pending.attempts += 1
+        await db.commit()
+        raise HTTPException(status_code=400, detail="Invalid OTP.")
+        
+    # Safety Check: ensure email isn't suddenly taken
+    existing_user = await db.scalar(select(User).where(User.email == email))
+    if existing_user:
+        await db.delete(pending)
+        await db.commit()
+        raise HTTPException(status_code=400, detail="Account already exists.")
+        
+    student_master_id = None
+    name = "New User"
+    
+    if pending.role == "student":
+        student_record = await db.scalar(select(StudentMaster).where(StudentMaster.official_email == email))
+        if student_record:
+            student_master_id = student_record.id
+            name = student_record.full_name
+            
+    user = User(
+        email=email,
+        name=name,
+        password_hash=pending.password_hash,
+        role=pending.role,
+        student_master_id=student_master_id
+    )
+    db.add(user)
+    
+    # Cleanup pending registration
+    await db.delete(pending)
+    await db.commit()
+    await db.refresh(user)
+    
+    access_token = create_access_token(
+        data={"sub": user.email, "user_id": user.id}, 
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    return {"access_token": access_token, "user": {"name": user.name, "email": user.email, "role": user.role}}
 
 @router.post("/register")
 async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
