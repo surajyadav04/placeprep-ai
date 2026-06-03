@@ -197,8 +197,8 @@ async def register_init(req: RegisterRequest, db: AsyncSession = Depends(get_db)
     validate_password_strength(req.password)
     
     # Generate OTP
-    import random
-    raw_otp = f"{random.randint(0, 999999):06d}"
+    import secrets
+    raw_otp = f"{secrets.randbelow(1000000):06d}"
     otp_hash = hashlib.sha256(raw_otp.encode()).hexdigest()
     
     # Clean up old pending registrations for this email
