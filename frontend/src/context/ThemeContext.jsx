@@ -4,13 +4,10 @@ const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
-    // Check localStorage first, otherwise fallback to user's system preference
+    // Check localStorage first, otherwise fallback to light mode default
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('theme');
       if (stored === 'dark' || stored === 'light') return stored;
-      
-      const userMedia = window.matchMedia('(prefers-color-scheme: dark)');
-      if (userMedia.matches) return 'dark';
     }
     return 'light'; // Default
   });
