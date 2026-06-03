@@ -9,6 +9,7 @@ import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
 import PersonalDetails from './pages/PersonalDetails';
 import Resources from './pages/Resources';
+import FounderDashboard from './pages/FounderDashboard';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -33,6 +34,7 @@ function App() {
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/mock-interview" element={<ProtectedRoute><MockInterview /></ProtectedRoute>} />
             <Route path="/resume" element={<ProtectedRoute><ResumeAnalyzer /></ProtectedRoute>} />
+            <Route path="/founder" element={<ProtectedRoute><FounderDashboard /></ProtectedRoute>} />
           </Routes>
         </Router>
       </AuthProvider>
