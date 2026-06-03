@@ -145,9 +145,9 @@ async def get_activity_analytics(current_user: User = Depends(get_current_user),
         raise HTTPException(status_code=403, detail="Founder access required")
         
     import datetime as dt
-    today = dt.datetime.utcnow()
     IST = timezone(timedelta(hours=5, minutes=30))
-    today_str = dt.datetime.now(IST).strftime("%Y-%m-%d")
+    today = dt.datetime.now(IST)
+    today_str = today.strftime("%Y-%m-%d")
     
     dau = await db.scalar(select(func.count(UserActivity.id)).where(UserActivity.date == today_str))
     
@@ -170,9 +170,16 @@ async def get_resume_analytics(current_user: User = Depends(get_current_user), d
     total = await db.scalar(select(func.count(Resume.id)))
     avg_score = await db.scalar(select(func.avg(Resume.ats_score)))
     
+    import json
     resumes = await db.execute(select(Resume.feedback_json).where(Resume.feedback_json.is_not(None)))
     skill_counts = {}
     for (f_json,) in resumes.all():
+        if isinstance(f_json, str):
+            try:
+                f_json = json.loads(f_json)
+            except:
+                continue
+                
         if isinstance(f_json, dict) and "skills" in f_json:
             skills = f_json.get("skills", [])
             for s in skills:
@@ -209,10 +216,10 @@ async def get_funnel_analytics(current_user: User = Depends(get_current_user), d
     if current_user.role != "founder":
         raise HTTPException(status_code=403, detail="Founder access required")
         
-    registered = await db.scalar(select(func.count(User.id)))
-    resumes_uploaded = await db.scalar(select(func.count(User.id.distinct())).join(Resume, Resume.user_id == User.id))
-    interview_started = await db.scalar(select(func.count(User.id.distinct())).join(Interview, Interview.user_id == User.id))
-    interview_completed = await db.scalar(select(func.count(User.id.distinct())).join(Interview, Interview.user_id == User.id).where(Interview.overall_score.is_not(None)))
+    registered = await db.scalar(select(func.count(User.id)).where(User.role == "student"))
+    resumes_uploaded = await db.scalar(select(func.count(User.id.distinct())).join(Resume, Resume.user_id == User.id).where(User.role == "student"))
+    interview_started = await db.scalar(select(func.count(User.id.distinct())).join(Interview, Interview.user_id == User.id).where(User.role == "student"))
+    interview_completed = await db.scalar(select(func.count(User.id.distinct())).join(Interview, Interview.user_id == User.id).where(Interview.overall_score.is_not(None)).where(User.role == "student"))
     
     return {
         "registered": registered or 0,
