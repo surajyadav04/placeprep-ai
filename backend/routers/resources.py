@@ -36,6 +36,9 @@ async def upload_resource(
     current_user: User = Depends(get_mentor_user),
     db: AsyncSession = Depends(get_db)
 ):
+    if title.upper().startswith("SYSTEM_"):
+        raise HTTPException(status_code=400, detail="Reserved system prefix.")
+        
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are allowed.")
     if file.content_type != "application/pdf":
@@ -73,6 +76,7 @@ async def get_resources(current_user: User = Depends(get_current_user), db: Asyn
     result = await db.execute(
         select(Resource, User.name.label("uploader_name"))
         .join(User, Resource.uploaded_by == User.id)
+        .where(~Resource.title.startswith("SYSTEM_"))
         .order_by(Resource.created_at.desc())
     )
     
