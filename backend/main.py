@@ -12,15 +12,16 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 try:
-    from .database import engine, Base, get_db
+    from .database import engine, Base, get_db, SessionLocal
     from . import models
     from .config import settings
-    from .auth import router as auth_router, get_current_user
+    from .auth import router as auth_router, get_current_user, get_password_hash
     from .opportunities import router as opportunities_router
     from .routers.resources import router as resources_router
     from .routers.activity import router as activity_router
     from .routers.analytics import router as analytics_router
     from .routers.admin import router as admin_router
+    from .routers.founder import router as founder_router
     from .services.resume_service import (
         validate_file,
         extract_text,
@@ -36,15 +37,16 @@ try:
         JDMatchResponse,
     )
 except ImportError:
-    from database import engine, Base, get_db
+    from database import engine, Base, get_db, SessionLocal
     import models
     from config import settings
-    from auth import router as auth_router, get_current_user
+    from auth import router as auth_router, get_current_user, get_password_hash
     from opportunities import router as opportunities_router
     from routers.resources import router as resources_router
     from routers.activity import router as activity_router
     from routers.analytics import router as analytics_router
     from routers.admin import router as admin_router
+    from routers.founder import router as founder_router
     from services.resume_service import (
         validate_file,
         extract_text,
@@ -97,6 +99,36 @@ async def lifespan(app: FastAPI):
     
     # Ensure uploads directory exists
     os.makedirs(os.path.join(os.path.dirname(__file__), "uploads", "resources"), exist_ok=True)
+    
+    # Founder Bootstrap Logic
+    if not settings.founder_email or not settings.founder_password:
+        print("Founder bootstrap skipped (missing configuration)")
+    else:
+        try:
+            from sqlalchemy import select
+            
+            async with SessionLocal() as session:
+                existing_founder = await session.scalar(select(models.User).where(models.User.email == settings.founder_email))
+                if not existing_founder:
+                    new_founder = models.User(
+                        email=settings.founder_email,
+                        name=settings.founder_name or "Founder",
+                        role="founder",
+                        password_hash=get_password_hash(settings.founder_password)
+                    )
+                    session.add(new_founder)
+                    await session.commit()
+                    print(f"Founder account created: {settings.founder_email}")
+                else:
+                    if existing_founder.role != "founder":
+                        existing_founder.role = "founder"
+                        await session.commit()
+                        print(f"Founder account verified and role updated: {settings.founder_email}")
+                    else:
+                        print(f"Founder account verified: {settings.founder_email}")
+        except Exception as e:
+            print(f"Founder bootstrap failed: {e}")
+            
     yield
 
 
@@ -123,6 +155,7 @@ app.include_router(resources_router)
 app.include_router(activity_router)
 app.include_router(analytics_router)
 app.include_router(admin_router)
+app.include_router(founder_router)
 
 
 # ---------- Schemas ----------

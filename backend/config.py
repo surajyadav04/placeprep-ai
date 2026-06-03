@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     smtp_password: str | None = None
     smtp_from: str | None = None
     smtp_test_enabled: bool = True
+    
+    # Founder Bootstrap Configuration
+    founder_email: str | None = None
+    founder_name: str | None = "Founder"
+    founder_password: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(__file__), ".env"),
