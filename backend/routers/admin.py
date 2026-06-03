@@ -2,15 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 try:
-    from ..auth import get_current_user
-    from ..models import User
-    from ..config import settings
-    from ..email_service import send_email
-except ImportError:
     from auth import get_current_user
     from models import User
     from config import settings
     from email_service import send_email
+except ImportError:
+    from backend.auth import get_current_user
+    from backend.models import User
+    from backend.config import settings
+    from backend.email_service import send_email
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 

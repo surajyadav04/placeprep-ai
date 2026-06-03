@@ -1,7 +1,10 @@
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from .config import settings
+try:
+    from .config import settings
+except (ImportError, ValueError):
+    from config import settings
 
 def send_email(to_email: str, subject: str, html_content: str) -> bool:
     if not settings.smtp_user or not settings.smtp_password:
