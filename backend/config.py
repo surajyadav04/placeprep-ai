@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     founder_password: str | None = None
     
     frontend_url: str = "https://placeprepai.vercel.app"
+    firebase_service_account_json: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(__file__), ".env"),

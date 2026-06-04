@@ -44,9 +44,6 @@ from typing import Optional
 class RegisterRequest(BaseModel):
     email: str
     password: str
-    role: str = "student"
-    mentor_code: Optional[str] = None
-    dob: Optional[str] = None
 
 class VerifyStudentRequest(BaseModel):
     email: str
@@ -58,6 +55,10 @@ class VerifyStudentDobRequest(BaseModel):
 class VerifyOTPRequest(BaseModel):
     email: str
     otp: str
+
+class RegisterCompleteRequest(BaseModel):
+    firebase_id_token: str
+    password: str
 
 class LoginRequest(BaseModel):
     email: str
@@ -78,8 +79,6 @@ class ProfileUpdateRequest(BaseModel):
     profile_image_url: Optional[str] = None
     skills: Optional[list[str]] = None
     name: Optional[str] = None
-    designation: Optional[str] = None
-    organization: Optional[str] = None
 
 def validate_password_strength(password: str) -> None:
     if len(password) < 10:
@@ -98,10 +97,8 @@ def validate_password_strength(password: str) -> None:
 def normalize_dob(dob: str) -> str:
     if not dob: return ""
     s = str(dob).strip()
-    # Excel dates often come in as "YYYY-MM-DD HH:MM:SS"
     s = s.split(" ")[0]
     
-    # Try parsing common formats
     for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%d-%m-%Y", "%Y/%m/%d"):
         try:
             dt = datetime.strptime(s, fmt)
@@ -109,7 +106,6 @@ def normalize_dob(dob: str) -> str:
         except ValueError:
             pass
             
-    # Fallback if no format matched
     return s.replace("/", "-")
 
 @router.post("/verify-student")
@@ -145,25 +141,43 @@ async def verify_student_dob(req: VerifyStudentDobRequest, db: AsyncSession = De
         
     return {"verified": False, "message": "Date of Birth does not match university records."}
 
+@router.get("/register/status")
+async def register_status(db: AsyncSession = Depends(get_db)):
+    reg_setting = await db.scalar(select(Resource).where(Resource.title == "SYSTEM_SETTING", Resource.file_path == "registration_open"))
+    mode_setting = await db.scalar(select(Resource).where(Resource.title == "SYSTEM_SETTING", Resource.file_path == "registration_mode"))
+    
+    is_open = True
+    if reg_setting and reg_setting.description == "false":
+        is_open = False
+        
+    mode = "firebase" # default
+    if mode_setting and mode_setting.description in ["otp", "firebase"]:
+        mode = mode_setting.description
+        
+    return {
+        "open": is_open,
+        "mode": mode
+    }
+
 @router.post("/register/init")
 async def register_init(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
     email = req.email.lower().strip()
-    role = req.role.strip().lower()
-    if role not in ["student", "mentor"]:
-        role = "student"
         
     # Registration Control Check
     reg_setting = await db.scalar(select(Resource).where(Resource.title == "SYSTEM_SETTING", Resource.file_path == "registration_open"))
     if reg_setting and reg_setting.description == "false":
         raise HTTPException(status_code=403, detail="Registration is currently closed by the administration.")
         
+    # Mode Check
+    mode_setting = await db.scalar(select(Resource).where(Resource.title == "SYSTEM_SETTING", Resource.file_path == "registration_mode"))
+    mode = mode_setting.description if mode_setting else "firebase"
+    if mode != "otp":
+        raise HTTPException(status_code=400, detail="OTP registration is currently disabled.")
+        
     # Check if user already exists
     existing_user = await db.scalar(select(User).where(User.email == email))
     if existing_user:
-        if role == "student":
-            raise HTTPException(status_code=400, detail="This student account has already been registered.")
-        else:
-            raise HTTPException(status_code=400, detail="Account already exists. Please login.")
+        raise HTTPException(status_code=400, detail="Account already exists. Please login.")
             
     # Cooldown Check
     recent_pending = await db.scalar(
@@ -176,23 +190,9 @@ async def register_init(req: RegisterRequest, db: AsyncSession = Depends(get_db)
         if delta.total_seconds() < 60:
             raise HTTPException(status_code=429, detail="Please wait 60 seconds before requesting another OTP.")
 
-    if role == "student":
-        student_record = await db.scalar(select(StudentMaster).where(StudentMaster.official_email == email))
-        if not student_record:
-            raise HTTPException(status_code=404, detail="Email not found in university records.")
-            
-        if not req.dob:
-            raise HTTPException(status_code=400, detail="Date of Birth is required for student registration.")
-            
-        db_dob = normalize_dob(student_record.dob)
-        req_dob = normalize_dob(req.dob)
-        
-        if db_dob != req_dob:
-            raise HTTPException(status_code=403, detail="Date of Birth does not match university records.")
-            
-    elif role == "mentor":
-        if req.mentor_code != settings.mentor_access_code:
-            raise HTTPException(status_code=403, detail="Invalid mentor access code.")
+    student_record = await db.scalar(select(StudentMaster).where(StudentMaster.official_email == email))
+    if not student_record:
+        raise HTTPException(status_code=404, detail="Email not found in university records.")
 
     validate_password_strength(req.password)
     
@@ -207,9 +207,6 @@ async def register_init(req: RegisterRequest, db: AsyncSession = Depends(get_db)
     pending = PendingRegistration(
         email=email,
         password_hash=get_password_hash(req.password),
-        role=role,
-        dob=req.dob if role == "student" else None,
-        mentor_code=req.mentor_code if role == "mentor" else None,
         otp_hash=otp_hash,
         expires_at=datetime.now(timezone.utc) + timedelta(minutes=10)
     )
@@ -237,6 +234,12 @@ async def register_init(req: RegisterRequest, db: AsyncSession = Depends(get_db)
 
 @router.post("/register/verify")
 async def register_verify(req: VerifyOTPRequest, db: AsyncSession = Depends(get_db)):
+    # Mode Check
+    mode_setting = await db.scalar(select(Resource).where(Resource.title == "SYSTEM_SETTING", Resource.file_path == "registration_mode"))
+    mode = mode_setting.description if mode_setting else "firebase"
+    if mode != "otp":
+        raise HTTPException(status_code=400, detail="OTP registration is currently disabled.")
+        
     email = req.email.lower().strip()
     
     pending = await db.scalar(
@@ -245,186 +248,175 @@ async def register_verify(req: VerifyOTPRequest, db: AsyncSession = Depends(get_
     )
     
     if not pending:
-        raise HTTPException(status_code=404, detail="No pending registration found or it has expired.")
+        raise HTTPException(status_code=400, detail="No pending registration found or it has expired.")
         
-    if datetime.now(timezone.utc) > pending.expires_at.replace(tzinfo=timezone.utc):
+    if pending.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
         await db.delete(pending)
         await db.commit()
-        raise HTTPException(status_code=400, detail="OTP has expired. Please request a new one.")
+        raise HTTPException(status_code=400, detail="OTP has expired. Please register again.")
         
     if pending.attempts >= 3:
         await db.delete(pending)
         await db.commit()
-        raise HTTPException(status_code=400, detail="Too many failed attempts. Please request a new OTP.")
+        raise HTTPException(status_code=400, detail="Too many failed attempts. Please register again.")
         
-    req_hash = hashlib.sha256(req.otp.encode()).hexdigest()
-    if req_hash != pending.otp_hash:
+    otp_hash = hashlib.sha256(req.otp.encode()).hexdigest()
+    if pending.otp_hash != otp_hash:
         pending.attempts += 1
         await db.commit()
         raise HTTPException(status_code=400, detail="Invalid OTP.")
         
-    # Create final user
-    new_user = User(
-        email=pending.email,
-        password_hash=pending.password_hash,
-        role=pending.role,
-        name=pending.email.split("@")[0] # Temporary name
-    )
+    # Safety Check: ensure email isn't suddenly taken
+    existing_user = await db.scalar(select(User).where(User.email == email))
+    if existing_user:
+        await db.delete(pending)
+        await db.commit()
+        raise HTTPException(status_code=400, detail="Account already exists.")
+        
+    student_master_id = None
+    name = "New User"
     
-    if pending.role == "student":
-        student_record = await db.scalar(select(StudentMaster).where(StudentMaster.official_email == email))
-        if student_record:
-            new_user.student_master_id = student_record.id
-            new_user.name = student_record.full_name
+    student_record = await db.scalar(select(StudentMaster).where(StudentMaster.official_email == email))
+    if student_record:
+        student_master_id = student_record.id
+        name = student_record.full_name
             
-    db.add(new_user)
+    user = User(
+        email=email,
+        name=name,
+        password_hash=pending.password_hash,
+        role="student",
+        student_master_id=student_master_id
+    )
+    db.add(user)
+    
+    # Cleanup pending registration
     await db.delete(pending)
     await db.commit()
-    await db.refresh(new_user)
+    await db.refresh(user)
     
-    return {"message": "Registration successful. You can now log in."}
+    access_token = create_access_token(
+        data={"sub": user.email, "user_id": user.id}, 
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    return {"access_token": access_token, "user": {"name": user.name, "email": user.email, "role": user.role}}
+
+@router.post("/register/complete")
+async def register_complete(req: RegisterCompleteRequest, db: AsyncSession = Depends(get_db)):
+    # Mode Check
+    mode_setting = await db.scalar(select(Resource).where(Resource.title == "SYSTEM_SETTING", Resource.file_path == "registration_mode"))
+    mode = mode_setting.description if mode_setting else "firebase"
+    if mode != "firebase":
+        raise HTTPException(status_code=400, detail="Firebase registration is currently disabled.")
+        
+    # Registration Control Check
+    reg_setting = await db.scalar(select(Resource).where(Resource.title == "SYSTEM_SETTING", Resource.file_path == "registration_open"))
+    if reg_setting and reg_setting.description == "false":
+        raise HTTPException(status_code=403, detail="Registration is currently closed by the administration.")
+        
+    # Verify Firebase Token
+    try:
+        from firebase_admin import auth as firebase_auth
+        decoded_token = firebase_auth.verify_id_token(req.firebase_id_token)
+        email = decoded_token.get("email", "").lower().strip()
+        email_verified = decoded_token.get("email_verified", False)
+        
+        if not email or not email_verified:
+            raise HTTPException(status_code=400, detail="Email is not verified via Firebase.")
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Invalid or expired Firebase token: {e}")
+        
+    # Check if user already exists
+    existing_user = await db.scalar(select(User).where(User.email == email))
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Account already exists. Please login.")
+
+    student_record = await db.scalar(select(StudentMaster).where(StudentMaster.official_email == email))
+    if not student_record:
+        raise HTTPException(status_code=404, detail="Email not found in university records.")
+            
+    student_master_id = student_record.id
+    name = student_record.full_name
+
+    validate_password_strength(req.password)
+    
+    # Create final user
+    user = User(
+        email=email,
+        name=name,
+        password_hash=get_password_hash(req.password),
+        role="student",
+        student_master_id=student_master_id
+    )
+            
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    
+    access_token = create_access_token(
+        data={"sub": user.email, "user_id": user.id}, 
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    return {"access_token": access_token, "user": {"name": user.name, "email": user.email, "role": user.role}}
 
 @router.post("/login")
 async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
-    user = await db.scalar(select(User).where(User.email == req.email.lower().strip()))
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid email or password.")
-        
-    if not verify_password(req.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Invalid email or password.")
-        
-    access_token = create_access_token(data={"sub": user.email, "role": user.role})
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "name": user.name,
-            "role": user.role
-        }
-    }
-
-async def get_current_user(token: str = Depends(jwt.get_unverified_header), db: AsyncSession = Depends(get_db)):
-    # Using a simple custom scheme where frontend sends standard Bearer token
-    # FastAPI's OAuth2PasswordBearer forces x-www-form-urlencoded which we are avoiding.
-    from fastapi import Request
-    async def extract_token(request: Request):
-        auth = request.headers.get("Authorization")
-        if not auth or not auth.startswith("Bearer "):
-            raise HTTPException(status_code=401, detail="Missing or invalid token")
-        return auth.split(" ")[1]
-        
-    return extract_token
-
-# Let's write the actual dependency that verifies token
-async def get_current_user(request: __import__("fastapi").Request, db: AsyncSession = Depends(get_db)):
-    auth = request.headers.get("Authorization")
-    if not auth or not auth.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid authentication token")
-        
-    token = auth.split(" ")[1]
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
-            raise HTTPException(status_code=401, detail="Invalid authentication payload")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Could not validate credentials")
-        
+    email = req.email.lower().strip()
     user = await db.scalar(select(User).where(User.email == email))
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-        
-    return user
-
-@router.get("/me")
-async def get_me(current_user: User = Depends(get_current_user)):
-    return {
-        "id": current_user.id,
-        "email": current_user.email,
-        "name": current_user.name,
-        "role": current_user.role,
-        "bio": current_user.bio,
-        "linkedin_url": current_user.linkedin_url,
-        "github_url": current_user.github_url,
-        "portfolio_url": current_user.portfolio_url,
-        "profile_image_url": current_user.profile_image_url,
-        "skills": current_user.skills,
-        "designation": current_user.designation,
-        "organization": current_user.organization,
-        "name_change_used": current_user.name_change_used
-    }
-
-@router.put("/profile")
-async def update_profile(req: ProfileUpdateRequest, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    if req.bio is not None: current_user.bio = req.bio
-    if req.linkedin_url is not None: current_user.linkedin_url = req.linkedin_url
-    if req.github_url is not None: current_user.github_url = req.github_url
-    if req.portfolio_url is not None: current_user.portfolio_url = req.portfolio_url
-    if req.profile_image_url is not None: current_user.profile_image_url = req.profile_image_url
-    if req.skills is not None: current_user.skills = req.skills
     
-    # Name updates (restricted for mentors after first time)
-    if req.name is not None and req.name != current_user.name:
-        if current_user.role == 'mentor':
-            if current_user.name_change_used:
-                raise HTTPException(status_code=400, detail="Mentors can only change their name once.")
-            current_user.name = req.name
-            current_user.name_change_used = True
-        elif current_user.role != 'student':
-            current_user.name = req.name
-            
-    if current_user.role == 'mentor':
-        if req.designation is not None: current_user.designation = req.designation
-        if req.organization is not None: current_user.organization = req.organization
+    if not user or not verify_password(req.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
         
-    await db.commit()
-    return {"message": "Profile updated successfully"}
+    access_token = create_access_token(
+        data={"sub": user.email, "user_id": user.id}, 
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    return {"access_token": access_token, "user": {"name": user.name, "email": user.email, "role": user.role}}
 
 @router.post("/forgot-password")
 async def forgot_password(req: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
     email = req.email.lower().strip()
     user = await db.scalar(select(User).where(User.email == email))
     
-    if not user:
-        # Prevent email enumeration by always returning success
-        return {"message": "If an account exists, a reset link has been sent."}
+    if user:
+        raw_token = secrets.token_hex(32)
+        token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
         
-    # Generate token
-    raw_token = secrets.token_urlsafe(32)
-    token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
-    
-    # Expire old tokens
-    await db.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == user.id))
-    
-    reset_token = PasswordResetToken(
-        user_id=user.id,
-        token_hash=token_hash,
-        expires_at=datetime.now(timezone.utc) + timedelta(hours=1)
-    )
-    db.add(reset_token)
-    await db.commit()
-    
-    # Send Email
-    reset_link = f"{settings.frontend_url}/reset-password?token={raw_token}"
-    
-    try:
-        from email_service import send_email
-    except ImportError:
-        from backend.email_service import send_email
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
         
-    if not send_email(
-        to_email=email,
-        subject="PlacePrep AI - Password Reset Request",
-        html_content=f"<p>Click the link below to reset your password. This link expires in 1 hour.</p><p><a href='{reset_link}'>{reset_link}</a></p>"
-    ):
-        print(f"--- DEVELOPMENT MODE: Password Reset link for {email} is {reset_link} ---")
+        reset_token = PasswordResetToken(
+            user_id=user.id,
+            token_hash=token_hash,
+            expires_at=expires_at
+        )
+        db.add(reset_token)
+        await db.commit()
         
-    return {"message": "If an account exists, a reset link has been sent."}
+        reset_url = f"https://placeprep.ai/reset-password?token={raw_token}"
+        
+        if settings.resend_api_key:
+            try:
+                import resend
+                resend.api_key = settings.resend_api_key
+                resend.Emails.send({
+                    "from": settings.resend_from_email,
+                    "to": user.email,
+                    "subject": "PlacePrep AI - Password Reset Request",
+                    "html": f"<p>You requested a password reset.</p><p>Click <a href='{reset_url}'>here</a> to reset your password.</p><p>This link expires in 15 minutes.</p>"
+                })
+            except Exception as e:
+                print(f"Failed to send email via resend: {e}")
+        else:
+            print(f"--- DEVELOPMENT MODE: Password Reset URL for {email} ---")
+            print(reset_url)
+            print("---------------------------------------------------------")
+            
+    return {"message": "If an account exists for that email, a reset link has been sent."}
 
 @router.post("/reset-password")
 async def reset_password(req: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+    validate_password_strength(req.new_password)
+    
     token_hash = hashlib.sha256(req.token.encode()).hexdigest()
     
     reset_record = await db.scalar(
@@ -436,15 +428,93 @@ async def reset_password(req: ResetPasswordRequest, db: AsyncSession = Depends(g
     if not reset_record:
         raise HTTPException(status_code=400, detail="Invalid or expired reset token.")
         
-    if datetime.now(timezone.utc) > reset_record.expires_at.replace(tzinfo=timezone.utc):
-        raise HTTPException(status_code=400, detail="Reset token has expired.")
+    if reset_record.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token.")
         
-    validate_password_strength(req.new_password)
-    
     user = await db.scalar(select(User).where(User.id == reset_record.user_id))
+    if not user:
+        raise HTTPException(status_code=400, detail="User not found.")
+        
     user.password_hash = get_password_hash(req.new_password)
-    
     reset_record.used = True
-    await db.commit()
     
-    return {"message": "Password has been successfully reset. You can now log in."}
+    await db.commit()
+    return {"message": "Password has been successfully reset."}
+
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+security = HTTPBearer()
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: AsyncSession = Depends(get_db)):
+    try:
+        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: int = payload.get("user_id")
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid auth credentials")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid auth credentials")
+        
+    user = await db.scalar(select(User).where(User.id == user_id))
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
+
+@router.get("/me")
+async def get_my_details(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    institutional_data = {}
+    
+    if current_user.role == "student" and current_user.student_master_id:
+        sm = await db.scalar(select(StudentMaster).where(StudentMaster.id == current_user.student_master_id))
+        if sm:
+            import datetime, decimal
+            raw_data = {}
+            for c in sm.__table__.columns:
+                val = getattr(sm, c.name)
+                if isinstance(val, (datetime.date, datetime.datetime)):
+                    val = val.isoformat()
+                elif isinstance(val, decimal.Decimal):
+                    val = float(val)
+                raw_data[c.name] = val
+                
+            institutional_data = {
+                "full_name": sm.full_name,
+                "roll_number": sm.roll_no,
+                "univ_email": sm.official_email,
+                "branch": sm.branch,
+                "batch": sm.batch,
+                "cgpa": sm.cgpa,
+                "program_type": sm.program_type,
+                "raw_data": raw_data
+            }
+    
+    profile_data = {
+        "bio": current_user.bio,
+        "linkedin_url": current_user.linkedin_url,
+        "github_url": current_user.github_url,
+        "portfolio_url": current_user.portfolio_url,
+        "profile_image_url": current_user.profile_image_url,
+        "skills": current_user.skills or []
+    }
+    
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "name": current_user.name,
+        "role": current_user.role,
+        "institutional": institutional_data,
+        "profile": profile_data
+    }
+
+@router.put("/profile/settings")
+async def update_profile_settings(req: ProfileUpdateRequest, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if req.bio is not None: current_user.bio = req.bio
+    if req.linkedin_url is not None: current_user.linkedin_url = req.linkedin_url
+    if req.github_url is not None: current_user.github_url = req.github_url
+    if req.portfolio_url is not None: current_user.portfolio_url = req.portfolio_url
+    if req.profile_image_url is not None: current_user.profile_image_url = req.profile_image_url
+    if req.skills is not None: current_user.skills = req.skills
+    
+    if req.name is not None and req.name.strip():
+        current_user.name = req.name.strip()
+    
+    await db.commit()
+    return {"message": "Profile updated successfully"}

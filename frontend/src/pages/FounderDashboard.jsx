@@ -99,70 +99,65 @@ export default function FounderDashboard() {
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
         >
-          <GlassCard className="p-6 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-              <Users size={64} />
-            </div>
-            <p className="text-sm text-text-secondary font-medium mb-2">Total Users</p>
-            <h3 className="text-4xl font-bold text-primary">{stats.total_users}</h3>
-            <p className="text-xs text-text-tertiary mt-2">Registered accounts</p>
+          {/* User Metrics */}
+          <GlassCard glowColor="violet" delay={0.1} className="p-6 flex flex-col justify-center">
+            <Users size={24} className="text-primary mb-4" />
+            <span className="label mb-1">Total Users</span>
+            <div className="text-4xl font-display font-bold text-primary">{stats.total_users}</div>
+            <p className="text-xs text-text-secondary mt-1">All registered accounts</p>
           </GlassCard>
 
-          <GlassCard className="p-6 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-emerald-400">
-              <User size={64} />
-            </div>
-            <p className="text-sm text-text-secondary font-medium mb-2">Students</p>
-            <h3 className="text-4xl font-bold text-emerald-400">{stats.students}</h3>
-            <p className="text-xs text-text-tertiary mt-2">Active candidates</p>
+          <GlassCard glowColor="cyan" delay={0.2} className="p-6 flex flex-col justify-center">
+            <Activity size={24} className="text-primary mb-4" />
+            <span className="label mb-1">Active Today</span>
+            <div className="text-4xl font-display font-bold text-primary">{stats.active_today}</div>
+            <p className="text-xs text-text-secondary mt-1">Unique logins today</p>
           </GlassCard>
 
-          <GlassCard className="p-6 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-blue-400">
-              <UserCheck size={64} />
-            </div>
-            <p className="text-sm text-text-secondary font-medium mb-2">Mentors</p>
-            <h3 className="text-4xl font-bold text-blue-400">{stats.mentors}</h3>
-            <p className="text-xs text-text-tertiary mt-2">Industry experts</p>
+          <GlassCard glowColor="emerald" delay={0.3} className="p-6 flex flex-col justify-center">
+            <TrendingUp size={24} className="text-primary mb-4" />
+            <span className="label mb-1">New Users</span>
+            <div className="text-4xl font-display font-bold text-primary">{stats.new_users_this_week}</div>
+            <p className="text-xs text-text-secondary mt-1">Joined in last 7 days</p>
+          </GlassCard>
+          
+          <GlassCard glowColor="amber" delay={0.4} className="p-6 flex flex-col justify-center">
+            <User size={24} className="text-primary mb-4" />
+            <span className="label mb-1">Students</span>
+            <div className="text-4xl font-display font-bold text-primary">{stats.students}</div>
+            <p className="text-xs text-text-secondary mt-1">Student accounts</p>
           </GlassCard>
 
-          <GlassCard className="p-6 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-amber-400">
-              <Activity size={64} />
-            </div>
-            <p className="text-sm text-text-secondary font-medium mb-2">Active Today</p>
-            <h3 className="text-4xl font-bold text-amber-400">{stats.active_today}</h3>
-            <p className="text-xs text-text-tertiary mt-2">Daily active users</p>
+          {/* Breakdown & Features */}
+          <GlassCard glowColor="blue" delay={0.5} className="p-6 flex flex-col justify-center">
+            <UserCheck size={24} className="text-primary mb-4" />
+            <span className="label mb-1">Mentors</span>
+            <div className="text-4xl font-display font-bold text-primary">{stats.mentors}</div>
+            <p className="text-xs text-text-secondary mt-1">Mentor accounts</p>
+          </GlassCard>
+          
+          <GlassCard glowColor="fuchsia" delay={0.6} className="p-6 flex flex-col justify-center">
+            <Shield size={24} className="text-primary mb-4" />
+            <span className="label mb-1">Founders</span>
+            <div className="text-4xl font-display font-bold text-primary">{stats.founders}</div>
+            <p className="text-xs text-text-secondary mt-1">Admin accounts</p>
           </GlassCard>
 
-          <GlassCard className="p-6 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-purple-400">
-              <TrendingUp size={64} />
-            </div>
-            <p className="text-sm text-text-secondary font-medium mb-2">New This Week</p>
-            <h3 className="text-4xl font-bold text-purple-400">{stats.new_users_this_week}</h3>
-            <p className="text-xs text-text-tertiary mt-2">Signups in last 7 days</p>
+          <GlassCard glowColor="orange" delay={0.7} className="p-6 flex flex-col justify-center">
+            <FileText size={24} className="text-primary mb-4" />
+            <span className="label mb-1">Resumes Analyzed</span>
+            <div className="text-4xl font-display font-bold text-primary">{stats.resume_analyses}</div>
+            <p className="text-xs text-text-secondary mt-1">Total ATS scans</p>
           </GlassCard>
-
-          <GlassCard className="p-6 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-fuchsia-400">
-              <FileText size={64} />
-            </div>
-            <p className="text-sm text-text-secondary font-medium mb-2">Resumes Analyzed</p>
-            <h3 className="text-4xl font-bold text-fuchsia-400">{stats.resume_analyses}</h3>
-            <p className="text-xs text-text-tertiary mt-2">Total ATS scans</p>
-          </GlassCard>
-
-          <GlassCard className="p-6 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-indigo-400">
-              <Mic size={64} />
-            </div>
-            <p className="text-sm text-text-secondary font-medium mb-2">Interviews Conducted</p>
-            <h3 className="text-4xl font-bold text-indigo-400">{stats.interview_evaluations}</h3>
-            <p className="text-xs text-text-tertiary mt-2">AI mock interviews</p>
+          
+          <GlassCard glowColor="rose" delay={0.8} className="p-6 flex flex-col justify-center">
+            <Mic size={24} className="text-primary mb-4" />
+            <span className="label mb-1">Interviews</span>
+            <div className="text-4xl font-display font-bold text-primary">{stats.interview_evaluations}</div>
+            <p className="text-xs text-text-secondary mt-1">AI interviews completed</p>
           </GlassCard>
         </motion.div>
       )}

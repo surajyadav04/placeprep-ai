@@ -6,8 +6,8 @@ import urllib.request
 from contextlib import asynccontextmanager
 from typing import List, Optional
 
-from fastapi import FastAPI, HTTPException, File, Form, UploadFile, Depends  # type: ignore
-from fastapi.middleware.cors import CORSMiddleware  # type: ignore
+from fastapi import FastAPI, HTTPException, File, Form, UploadFile, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -72,27 +72,25 @@ if settings.gemini_api_key:
     except Exception as e:
         print(f"Failed to initialize Gemini Client: {e}")
 
+# ---------- Firebase Admin Setup ----------
+
+try:
+    import firebase_admin
+    from firebase_admin import credentials
+    if settings.firebase_service_account_json:
+        cred_dict = json.loads(settings.firebase_service_account_json)
+        cred = credentials.Certificate(cred_dict)
+        firebase_admin.initialize_app(cred)
+        print("Firebase Admin SDK initialized successfully.")
+    else:
+        print("Firebase Admin SDK skipped (missing configuration)")
+except Exception as e:
+    print(f"Failed to initialize Firebase Admin SDK: {e}")
 
 # ---------- App Lifespan ----------
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Run DB migration for existing tables (adds new columns safely if they don't exist)
-    import sqlite3
-    db_path = os.path.join(os.path.dirname(__file__), "placeprep.db")
-    try:
-        conn = sqlite3.connect(db_path)
-        c = conn.cursor()
-        for col, col_type in [("designation", "VARCHAR"), ("organization", "VARCHAR"), ("name_change_used", "BOOLEAN DEFAULT 0")]:
-            try:
-                c.execute(f"ALTER TABLE users {col} {col_type}")
-            except Exception:
-                pass
-        conn.commit()
-        conn.close()
-    except Exception as e:
-        print(f"Migration error: {e}")
-
     # Ensure fresh DB tables are created
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -183,7 +181,6 @@ class JDMatchRequest(BaseModel):
 # ---------- Simulated Fallback ----------
 
 def get_simulated_feedback(question: str, answer: str) -> EvaluationResponse:
-    """Rule-based evaluation when AI APIs are unavailable."""
     q   = question.lower()
     ans = answer.lower()
 
@@ -288,7 +285,6 @@ def get_simulated_feedback(question: str, answer: str) -> EvaluationResponse:
 # ---------- OpenRouter Evaluation ----------
 
 def call_openrouter(question: str, answer: str, api_key: str) -> EvaluationResponse:
-    """Evaluate using OpenRouter API with Gemini 2.5 Flash."""
     url = "https://openrouter.ai/api/v1/chat/completions"
 
     system_instruction = (
@@ -373,14 +369,12 @@ async def evaluate_interview(request: EvaluationRequest, current_user: models.Us
 
     res = None
 
-    # 1. Try OpenRouter (Gemini 2.5 Flash via API)
     if settings.openrouter_api_key:
         try:
             res = call_openrouter(request.question, request.answer, settings.openrouter_api_key)
         except Exception as e:
             print(f"OpenRouter failed: {e}")
 
-    # 2. Try native Gemini client
     if not res and client:
         try:
             from google.genai import types
@@ -411,11 +405,9 @@ async def evaluate_interview(request: EvaluationRequest, current_user: models.Us
         except Exception as e:
             print(f"Gemini evaluation failed: {e}")
 
-    # 3. Fallback to rule-based simulation
     if not res:
         res = get_simulated_feedback(request.question, request.answer)
 
-    # Persist History
     try:
         interview = models.Interview(
             user_id=current_user.id,
@@ -444,9 +436,6 @@ async def analyze_resume(
     current_user: models.User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Upload a resume (PDF/DOCX) and get ATS analysis.
-    Optionally include jd_text as a form field for semantic JD matching.
-    """
     validate_file(file)
 
     temp_dir  = os.path.join(os.path.dirname(__file__), "tmp", "resumes")
@@ -458,7 +447,6 @@ async def analyze_resume(
         with open(temp_path, "wb") as f:
             f.write(await file.read())
 
-        # Core pipeline
         raw_text          = extract_text(temp_path)
         parsed            = parse_resume(raw_text)
         formatting_issues = detect_formatting_issues(temp_path)
@@ -469,7 +457,6 @@ async def analyze_resume(
             formatting_issues=formatting_issues,
         )
 
-        # Skill intelligence
         resume_skills     = extract_skills(raw_text)
         resume_skill_names = {s["name"] for s in resume_skills}
         missing_skills: List[str] = []
@@ -477,10 +464,8 @@ async def analyze_resume(
             jd_skills     = extract_jd_skills(jd_text)
             missing_skills = [s for s in jd_skills if s not in resume_skill_names][:15]
 
-        # Section scores
         sec_scores = _section_scores(parsed)
 
-        # Feedback
         feedback = generate_feedback(score_data, parsed=parsed, jd_text=jd_text or None)
 
         res = ResumeAnalysisResponse(
@@ -502,7 +487,6 @@ async def analyze_resume(
             formatting_issues=formatting_issues,
         )
         
-        # Persist History
         try:
             resume_record = models.Resume(
                 user_id=current_user.id,
@@ -534,7 +518,6 @@ async def analyze_resume(
 
 @app.post("/api/resume/match-jd", response_model=JDMatchResponse)
 async def match_resume_jd(file: UploadFile = File(...), jd: JDMatchRequest = None, current_user: models.User = Depends(get_current_user)):
-    """Upload resume and provide a job description to get match analysis."""
     if not jd or not jd.job_description.strip():
         raise HTTPException(status_code=400, detail="Job description is required.")
 

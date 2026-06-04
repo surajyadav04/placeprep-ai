@@ -95,12 +95,16 @@ export default function FounderControlCenter({ API_URL, token }) {
 
 function RegistrationControl({ API_URL, token, showMessage }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [mode, setMode] = useState('firebase');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     axios.get(`${API_URL}/api/founder/settings/registration`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(res => setIsOpen(res.data.is_open))
+      .then(res => {
+        setIsOpen(res.data.is_open);
+        setMode(res.data.mode || 'firebase');
+      })
       .catch(() => showMessage('error', 'Failed to load registration setting'))
       .finally(() => setLoading(false));
   }, [API_URL, token]);
@@ -109,13 +113,29 @@ function RegistrationControl({ API_URL, token, showMessage }) {
     setSaving(true);
     try {
       await axios.post(`${API_URL}/api/founder/settings/registration`, 
-        { is_open: !isOpen }, 
+        { is_open: !isOpen, mode: mode }, 
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setIsOpen(!isOpen);
       showMessage('success', `Registration has been ${!isOpen ? 'opened' : 'closed'}.`);
     } catch (err) {
       showMessage('error', 'Failed to update registration status.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const changeMode = async (newMode) => {
+    setSaving(true);
+    try {
+      await axios.post(`${API_URL}/api/founder/settings/registration`, 
+        { is_open: isOpen, mode: newMode }, 
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setMode(newMode);
+      showMessage('success', `Registration mode updated to ${newMode}.`);
+    } catch (err) {
+      showMessage('error', 'Failed to update registration mode.');
     } finally {
       setSaving(false);
     }
@@ -130,7 +150,7 @@ function RegistrationControl({ API_URL, token, showMessage }) {
         <p className="text-sm text-text-secondary mt-1">Control whether new students can create accounts on PlacePrep.</p>
       </div>
 
-      <div className="flex items-center justify-between p-6 bg-surface-low border border-[var(--color-border)]/50 rounded-xl">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between p-6 bg-surface-low border border-[var(--color-border)]/50 rounded-xl gap-4">
         <div>
           <h5 className="font-bold text-primary flex items-center gap-2">
             Status: 
@@ -149,11 +169,41 @@ function RegistrationControl({ API_URL, token, showMessage }) {
             isOpen 
               ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30' 
               : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30'
-          } disabled:opacity-50`}
+          } disabled:opacity-50 whitespace-nowrap`}
         >
           <Power size={18} />
           {saving ? 'Processing...' : isOpen ? 'Lock Registration' : 'Open Registration'}
         </button>
+      </div>
+
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between p-6 bg-surface-low border border-[var(--color-border)]/50 rounded-xl gap-4">
+        <div>
+          <h5 className="font-bold text-primary flex items-center gap-2">
+            Registration Mode: 
+            <span className={`px-2 py-0.5 rounded text-xs uppercase tracking-wider ${mode === 'firebase' ? 'bg-blue-500/20 text-blue-400' : 'bg-amber-500/20 text-amber-400'}`}>
+              {mode === 'firebase' ? 'Firebase' : 'OTP'}
+            </span>
+          </h5>
+          <p className="text-sm text-text-secondary mt-1">
+            Choose whether to use Firebase Email Links or legacy OTP for verification.
+          </p>
+        </div>
+        <div className="flex bg-black/10 p-1 rounded-lg">
+          <button
+            onClick={() => changeMode('firebase')}
+            disabled={saving || mode === 'firebase'}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${mode === 'firebase' ? 'bg-blue-500/20 border border-blue-500/30 text-blue-400' : 'text-text-secondary hover:text-primary'} disabled:opacity-50`}
+          >
+            Firebase
+          </button>
+          <button
+            onClick={() => changeMode('otp')}
+            disabled={saving || mode === 'otp'}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${mode === 'otp' ? 'bg-amber-500/20 border border-amber-500/30 text-amber-400' : 'text-text-secondary hover:text-primary'} disabled:opacity-50`}
+          >
+            OTP
+          </button>
+        </div>
       </div>
     </div>
   );

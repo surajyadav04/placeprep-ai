@@ -232,6 +232,7 @@ async def get_funnel_analytics(current_user: User = Depends(get_current_user), d
 
 class RegistrationSetting(BaseModel):
     is_open: bool
+    mode: Optional[str] = "firebase"
 
 class NotificationRequest(BaseModel):
     message: str
@@ -261,10 +262,14 @@ async def get_registration_setting(current_user: User = Depends(get_current_user
     if current_user.role != "founder": raise HTTPException(status_code=403, detail="Founder access required")
     from models import Resource
     setting = await db.scalar(select(Resource).where(Resource.title == "SYSTEM_SETTING", Resource.file_path == "registration_open"))
+    mode_setting = await db.scalar(select(Resource).where(Resource.title == "SYSTEM_SETTING", Resource.file_path == "registration_mode"))
     is_open = True
     if setting and setting.description == "false":
         is_open = False
-    return {"is_open": is_open}
+    mode = "firebase"
+    if mode_setting and mode_setting.description in ["otp", "firebase"]:
+        mode = mode_setting.description
+    return {"is_open": is_open, "mode": mode}
 
 @router.post("/settings/registration")
 async def update_registration_setting(req: RegistrationSetting, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
@@ -276,9 +281,17 @@ async def update_registration_setting(req: RegistrationSetting, current_user: Us
         db.add(setting)
     
     setting.description = "true" if req.is_open else "false"
+    
+    if req.mode in ["otp", "firebase"]:
+        mode_setting = await db.scalar(select(Resource).where(Resource.title == "SYSTEM_SETTING", Resource.file_path == "registration_mode"))
+        if not mode_setting:
+            mode_setting = Resource(title="SYSTEM_SETTING", file_path="registration_mode", uploaded_by=current_user.id)
+            db.add(mode_setting)
+        mode_setting.description = req.mode
+        
     await db.commit()
-    await log_audit(db, current_user.id, "REGISTRATION", f"Registration {'opened' if req.is_open else 'closed'}")
-    return {"success": True, "is_open": req.is_open}
+    await log_audit(db, current_user.id, "REGISTRATION", f"Registration {'opened' if req.is_open else 'closed'} | Mode: {req.mode}")
+    return {"success": True, "is_open": req.is_open, "mode": req.mode}
 
 @router.get("/notifications")
 async def get_notifications(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
