@@ -6,8 +6,8 @@ import urllib.request
 from contextlib import asynccontextmanager
 from typing import List, Optional
 
-from fastapi import FastAPI, HTTPException, File, Form, UploadFile, Depends
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, HTTPException, File, Form, UploadFile, Depends  # type: ignore
+from fastapi.middleware.cors import CORSMiddleware  # type: ignore
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -181,6 +181,7 @@ class JDMatchRequest(BaseModel):
 # ---------- Simulated Fallback ----------
 
 def get_simulated_feedback(question: str, answer: str) -> EvaluationResponse:
+    """Rule-based evaluation when AI APIs are unavailable."""
     q   = question.lower()
     ans = answer.lower()
 
@@ -285,6 +286,7 @@ def get_simulated_feedback(question: str, answer: str) -> EvaluationResponse:
 # ---------- OpenRouter Evaluation ----------
 
 def call_openrouter(question: str, answer: str, api_key: str) -> EvaluationResponse:
+    """Evaluate using OpenRouter API with Gemini 2.5 Flash."""
     url = "https://openrouter.ai/api/v1/chat/completions"
 
     system_instruction = (
@@ -359,6 +361,25 @@ def read_root():
 def health_check():
     return {"status": "ok"}
 
+from sqlalchemy import select, func
+
+@app.get("/api/debug/db-stats")
+async def debug_db_stats(current_user: models.User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if current_user.role not in ["founder", "admin"]:
+        raise HTTPException(status_code=403, detail="Founder/Admin access required")
+        
+    total_users = await db.scalar(select(func.count(models.User.id)))
+    total_students = await db.scalar(select(func.count(models.StudentMaster.id)))
+    founder_count = await db.scalar(select(func.count(models.User.id)).where(models.User.role.in_(["founder", "admin"])))
+    students_2027 = await db.scalar(select(func.count(models.StudentMaster.id)).where(models.StudentMaster.batch == '2027'))
+    
+    return {
+        "total_users": total_users or 0,
+        "total_students": total_students or 0,
+        "founder_count": founder_count or 0,
+        "students_2027": students_2027 or 0
+    }
+
 
 # --- Interview Evaluation ---
 
@@ -369,12 +390,14 @@ async def evaluate_interview(request: EvaluationRequest, current_user: models.Us
 
     res = None
 
+    # 1. Try OpenRouter (Gemini 2.5 Flash via API)
     if settings.openrouter_api_key:
         try:
             res = call_openrouter(request.question, request.answer, settings.openrouter_api_key)
         except Exception as e:
             print(f"OpenRouter failed: {e}")
 
+    # 2. Try native Gemini client
     if not res and client:
         try:
             from google.genai import types
@@ -405,9 +428,11 @@ async def evaluate_interview(request: EvaluationRequest, current_user: models.Us
         except Exception as e:
             print(f"Gemini evaluation failed: {e}")
 
+    # 3. Fallback to rule-based simulation
     if not res:
         res = get_simulated_feedback(request.question, request.answer)
 
+    # Persist History
     try:
         interview = models.Interview(
             user_id=current_user.id,
@@ -436,6 +461,9 @@ async def analyze_resume(
     current_user: models.User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    """Upload a resume (PDF/DOCX) and get ATS analysis.
+    Optionally include jd_text as a form field for semantic JD matching.
+    """
     validate_file(file)
 
     temp_dir  = os.path.join(os.path.dirname(__file__), "tmp", "resumes")
@@ -447,6 +475,7 @@ async def analyze_resume(
         with open(temp_path, "wb") as f:
             f.write(await file.read())
 
+        # Core pipeline
         raw_text          = extract_text(temp_path)
         parsed            = parse_resume(raw_text)
         formatting_issues = detect_formatting_issues(temp_path)
@@ -457,6 +486,7 @@ async def analyze_resume(
             formatting_issues=formatting_issues,
         )
 
+        # Skill intelligence
         resume_skills     = extract_skills(raw_text)
         resume_skill_names = {s["name"] for s in resume_skills}
         missing_skills: List[str] = []
@@ -464,8 +494,10 @@ async def analyze_resume(
             jd_skills     = extract_jd_skills(jd_text)
             missing_skills = [s for s in jd_skills if s not in resume_skill_names][:15]
 
+        # Section scores
         sec_scores = _section_scores(parsed)
 
+        # Feedback
         feedback = generate_feedback(score_data, parsed=parsed, jd_text=jd_text or None)
 
         res = ResumeAnalysisResponse(
@@ -487,6 +519,7 @@ async def analyze_resume(
             formatting_issues=formatting_issues,
         )
         
+        # Persist History
         try:
             resume_record = models.Resume(
                 user_id=current_user.id,
@@ -518,6 +551,7 @@ async def analyze_resume(
 
 @app.post("/api/resume/match-jd", response_model=JDMatchResponse)
 async def match_resume_jd(file: UploadFile = File(...), jd: JDMatchRequest = None, current_user: models.User = Depends(get_current_user)):
+    """Upload resume and provide a job description to get match analysis."""
     if not jd or not jd.job_description.strip():
         raise HTTPException(status_code=400, detail="Job description is required.")
 
