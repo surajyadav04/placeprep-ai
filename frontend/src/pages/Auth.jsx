@@ -136,7 +136,25 @@ export default function Auth() {
         setRegisterStep(role === 'mentor' ? 2 : 4);
       }
     } catch (err) {
-      setError(err.response?.data?.detail || err.message || 'Failed to initialize registration');
+      console.error("Registration Error:", err);
+      if (err.code && err.code.startsWith('auth/')) {
+        switch (err.code) {
+          case 'auth/quota-exceeded':
+            setError("Email verification is temporarily unavailable due to high demand. Please try again later.");
+            break;
+          case 'auth/too-many-requests':
+            setError("Too many attempts detected. Please wait a few minutes and try again.");
+            break;
+          case 'auth/network-request-failed':
+            setError("Unable to connect. Please check your internet connection.");
+            break;
+          default:
+            setError("Unable to send verification email. Please try again later.");
+            break;
+        }
+      } else {
+        setError(err.response?.data?.detail || err.message || 'Failed to initialize registration');
+      }
     }
     setLoading(false);
   };
