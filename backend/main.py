@@ -380,6 +380,28 @@ async def debug_db_stats(current_user: models.User = Depends(get_current_user), 
         "students_2027": students_2027 or 0
     }
 
+try:
+    from . import import_2027_batch_upsert
+except ImportError:
+    import import_2027_batch_upsert
+
+@app.post("/api/admin/import-2027")
+async def admin_import_2027(current_user: models.User = Depends(get_current_user)):
+    if current_user.role not in ["founder", "admin"]:
+        raise HTTPException(status_code=403, detail="Founder/Admin access required")
+    
+    file_path = os.path.join(os.path.dirname(__file__), "BCA_2027.xlsx.xlsx")
+    if not os.path.exists(file_path):
+        file_path = os.path.join(os.path.dirname(__file__), "BCA_2027.xlsx")
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="BCA_2027.xlsx file not found on server. Please ensure it is deployed to backend/ directory.")
+            
+    try:
+        stats = await import_2027_batch_upsert.upsert_students_from_excel(file_path, dry_run=False)
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
+
 
 # --- Interview Evaluation ---
 
