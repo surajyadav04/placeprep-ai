@@ -17,6 +17,10 @@ export default function Dashboard() {
 
   const [isStreakModalOpen, setIsStreakModalOpen] = useState(false);
   const [currentStreak, setCurrentStreak] = useState(0);
+  const [quickStats, setQuickStats] = useState({
+    resumes_uploaded: 0,
+    interviews_completed: 0
+  });
 
   useEffect(() => {
     if (userData && userData.role !== 'mentor') {
@@ -28,6 +32,12 @@ export default function Dashboard() {
         })
         .then(res => setCurrentStreak(res.data.currentStreak || 0))
         .catch(err => console.error("Streak fetch error:", err));
+
+        axios.get(`${API_URL}/api/analytics/quick-stats`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        .then(res => setQuickStats(res.data))
+        .catch(err => console.error("Quick stats fetch error:", err));
       }
     }
   }, [userData]);
@@ -35,6 +45,17 @@ export default function Dashboard() {
   const firstName = userData?.name?.split(' ')[0] || (userData?.role === 'mentor' ? 'Mentor' : 'Student');
   const branch = userData?.institutional?.branch;
   const batch = userData?.institutional?.batch;
+
+  let summaryText = 'Complete your profile to begin your placement journey.';
+  if (quickStats.interviews_completed >= 5) {
+    summaryText = "You're actively preparing. Keep building your interview performance.";
+  } else if (quickStats.interviews_completed > 0 && quickStats.resumes_uploaded > 0) {
+    summaryText = `You have completed ${quickStats.interviews_completed} interviews and uploaded ${quickStats.resumes_uploaded} resumes.`;
+  } else if (quickStats.resumes_uploaded > 0) {
+    summaryText = 'Great start! Your resume is ready for review.';
+  } else if (quickStats.interviews_completed > 0) {
+    summaryText = `You have completed ${quickStats.interviews_completed} interviews.`;
+  }
 
   return (
     <Layout>
@@ -55,7 +76,7 @@ export default function Dashboard() {
           <p className="text-lg mt-3 text-text-secondary max-w-lg font-body">
             {userData?.role === 'mentor' 
               ? 'Manage and share placement opportunities with students.'
-              : (branch ? `${branch} | Batch of ${batch}` : 'Your placement journey is 40% complete. Continue your rigorous preparation.')
+              : (branch ? `${branch} | Batch of ${batch} • ${summaryText}` : summaryText)
             }
           </p>
         </div>

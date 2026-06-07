@@ -17,6 +17,12 @@ export default function Analytics() {
     total_resource_downloads: 0
   });
 
+  const [studentStats, setStudentStats] = useState({
+    interviews: [],
+    avgSession: 0,
+    growthRate: 0
+  });
+
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
   useEffect(() => {
@@ -33,6 +39,66 @@ export default function Analytics() {
         }
       };
       fetchMentorStats();
+    } else {
+      const fetchStudentStats = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const [historyRes, statsRes] = await Promise.all([
+            axios.get(`${API_URL}/api/analytics/interview-history`, {
+              headers: { Authorization: `Bearer ${token}` }
+            }),
+            axios.get(`${API_URL}/api/activity/stats`, {
+              headers: { Authorization: `Bearer ${token}` }
+            })
+          ]);
+          
+          let interviews = historyRes.data || [];
+          interviews = interviews.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+          if (interviews.length > 7) {
+            interviews = interviews.slice(interviews.length - 7);
+          }
+          
+          const activityStats = statsRes.data;
+          const avgSession = Math.round((activityStats.weeklySeconds || 0) / 7 / 60);
+          
+          const cal = activityStats.activityCalendar || {};
+          const today = new Date();
+          let currentWeekSecs = 0;
+          let prevWeekSecs = 0;
+          
+          for (let i = 0; i < 7; i++) {
+            const d = new Date(today);
+            d.setDate(d.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+            currentWeekSecs += (cal[dateStr] || 0);
+          }
+          
+          for (let i = 7; i < 14; i++) {
+            const d = new Date(today);
+            d.setDate(d.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+            prevWeekSecs += (cal[dateStr] || 0);
+          }
+          
+          let growthRate = 0;
+          if (prevWeekSecs > 0) {
+            growthRate = Math.round(((currentWeekSecs - prevWeekSecs) / prevWeekSecs) * 100);
+          } else {
+            growthRate = 0;
+          }
+          
+          if (!isFinite(growthRate) || isNaN(growthRate)) growthRate = 0;
+          
+          setStudentStats({
+            interviews,
+            avgSession,
+            growthRate
+          });
+        } catch (err) {
+          console.error("Failed to fetch student analytics", err);
+        }
+      };
+      fetchStudentStats();
     }
   }, [isMentor, API_URL]);
 
@@ -102,21 +168,31 @@ export default function Analytics() {
                 </div>
               </div>
               
-              {/* Mock Chart Visualization */}
+              {/* Dynamic Chart Visualization */}
               <div className="flex-1 flex items-end gap-2 px-2 pb-4 pt-10">
-                {[40, 55, 45, 60, 75, 82, 84].map((h, i) => (
-                  <div key={i} className="flex-1 bg-primary/10 rounded-t-sm relative group transition-all duration-300 hover:bg-primary/20" style={{ height: `${h}%` }}>
-                    <motion.div 
-                      initial={{ height: 0 }} 
-                      animate={{ height: '100%' }} 
-                      transition={{ duration: 1, delay: 0.2 + (i * 0.1), ease: [0.32, 0.72, 0, 1] }}
-                      className="absolute bottom-0 w-full bg-primary rounded-t-sm opacity-60 group-hover:opacity-100 transition-opacity" 
-                    />
+                {studentStats.interviews.length === 0 ? (
+                  <div className="w-full flex items-center justify-center text-text-tertiary text-sm pb-10">
+                    Complete your first mock interview to see progress analytics.
                   </div>
-                ))}
+                ) : (
+                  studentStats.interviews.map((interview, i) => (
+                    <div key={i} className="flex-1 bg-primary/10 rounded-t-sm relative group transition-all duration-300 hover:bg-primary/20" style={{ height: `${Math.max(interview.overall_score || 0, 5)}%` }}>
+                      <motion.div 
+                        initial={{ height: 0 }} 
+                        animate={{ height: '100%' }} 
+                        transition={{ duration: 1, delay: 0.2 + (i * 0.1), ease: [0.32, 0.72, 0, 1] }}
+                        className="absolute bottom-0 w-full bg-primary rounded-t-sm opacity-60 group-hover:opacity-100 transition-opacity" 
+                      />
+                    </div>
+                  ))
+                )}
               </div>
               <div className="flex justify-between text-xs text-text-tertiary px-2 font-display">
-                <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+                {studentStats.interviews.length > 0 && studentStats.interviews.map((interview, i) => {
+                  const date = new Date(interview.created_at);
+                  const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+                  return <span key={i}>{dayName}</span>;
+                })}
               </div>
             </div>
           </GlassCard>
@@ -126,14 +202,14 @@ export default function Analytics() {
             <GlassCard glowColor="violet" delay={0.2} className="flex-1 p-6 flex flex-col justify-center">
               <TrendingUp size={24} className="text-primary mb-4" />
               <span className="label mb-1">Growth Rate</span>
-              <div className="text-4xl font-display font-bold text-primary">+14%</div>
+              <div className="text-4xl font-display font-bold text-primary">{studentStats.growthRate > 0 ? '+' : ''}{studentStats.growthRate}%</div>
               <p className="text-xs text-text-secondary mt-1">vs last week</p>
             </GlassCard>
 
             <GlassCard glowColor="amber" delay={0.3} className="flex-1 p-6 flex flex-col justify-center">
               <Clock size={24} className="text-primary mb-4" />
               <span className="label mb-1">Avg Session</span>
-              <div className="text-4xl font-display font-bold text-primary">42<span className="text-xl text-text-tertiary">m</span></div>
+              <div className="text-4xl font-display font-bold text-primary">{studentStats.avgSession}<span className="text-xl text-text-tertiary">m</span></div>
               <p className="text-xs text-text-secondary mt-1">focus time</p>
             </GlassCard>
           </div>
